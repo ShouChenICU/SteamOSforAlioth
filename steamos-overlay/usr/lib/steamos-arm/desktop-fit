@@ -1,0 +1,91 @@
+#!/usr/bin/python3
+"""Desktop Mode sized for the handheld's panel, once per user.
+
+The image ships one scale (125 %) for every device, which is small to tap
+on a 6-7" 1080p panel and too big on a 1280x960 one. On the first Desktop
+start this works the scale out from the panel instead: about 1280 logical
+pixels along its long side, in 25 % steps between 100 % and 200 %
+(1080p panels get 150 %, 1280x960 100 %, 2560x1600 200 %). It also turns
+on Plasma's touch mode (bigger controls) and stops the tablet-mode
+auto-rotation the shipped config asks for. Only the shipped values are
+replaced, so a scale or mode the user picked stays. Devices with two
+panels keep their own layout.
+"""
+import glob
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")),
+                     "steamos-arm", "desktop-fit-1")
+CONF = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+                    "kwinoutputconfig.json")
+SHIPPED = "/etc/xdg/kwinoutputconfig.json"
+SHIPPED_SCALE = 1.25
+
+
+def panels() -> list[tuple[str, int, int]]:
+    out = []
+    for d in sorted(glob.glob("/sys/class/drm/card*-DSI-*")):
+        try:
+            if open(f"{d}/status").read().strip() != "connected":
+                continue
+            w, h = open(f"{d}/modes").readline().strip().split("x")[:2]
+            out.append((os.path.basename(d).split("-", 1)[1], int(w), int(h.split("i")[0])))
+        except (OSError, ValueError):
+            continue
+    return out
+
+
+def scale_for(w: int, h: int) -> float:
+    return min(2.0, max(1.0, round(max(w, h) / 1280 * 4) / 4))
+
+
+def kwrite(key: str, value: str) -> None:
+    tool = shutil.which("kwriteconfig6") or shutil.which("kwriteconfig5")
+    if tool:
+        subprocess.run([tool, "--file", "kwinrc", "--group", "Input", "--key", key, value],
+                       check=False, timeout=10)
+
+
+def main() -> int:
+    if os.path.exists(STATE):
+        return 0
+    found = panels()
+    if len(found) != 1:
+        return 0                    # no panel known, or a two-screen layout
+    connector, w, h = found[0]
+    scale = scale_for(w, h)
+    try:
+        src = CONF if os.path.exists(CONF) else SHIPPED
+        with open(src, encoding="utf-8") as fh:
+            cfg = json.load(fh)
+        for section in cfg:
+            if section.get("name") != "outputs":
+                continue
+            for out in section.get("data", []):
+                if out.get("connectorName") != connector:
+                    continue
+                if abs(float(out.get("scale", SHIPPED_SCALE)) - SHIPPED_SCALE) < 1e-3:
+                    out["scale"] = scale
+                if out.get("autoRotation") == "InTabletMode":
+                    out["autoRotation"] = "Never"
+        os.makedirs(os.path.dirname(CONF), exist_ok=True)
+        tmp = CONF + ".new"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh, indent=4)
+        os.replace(tmp, CONF)
+    except (OSError, ValueError) as err:
+        print(f"desktop-fit: {err}", file=sys.stderr)
+        return 1
+    kwrite("TabletMode", "on")
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    with open(STATE, "w") as fh:
+        fh.write(f"{connector} {w}x{h} scale {scale}\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

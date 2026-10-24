@@ -1,0 +1,20 @@
+#!/bin/bash
+# Desktop Mode's Steam autostart.
+#
+# Steam draws its on-screen keyboard (Steam + X) 1280 px wide times
+# Xft.dpi / 96, and KWin sets Xft.dpi from the desktop scale on every start
+# (125 % -> 120). On a narrow panel that runs the keyboard past both edges:
+# 1600 px on the AYANEO Pocket DMG's 1240 px, 15 % cut off each side. Lower
+# Xft.dpi, after KWin and before Steam reads it, to what lets the keyboard
+# fit the X screen; panels wide enough keep KWin's value.
+if command -v xrdb >/dev/null 2>&1 && command -v xrandr >/dev/null 2>&1; then
+  width=$(xrandr --current 2>/dev/null | sed -n 's/.* current \([0-9]*\) x .*/\1/p' | head -1)
+  cur=$(xrdb -query 2>/dev/null | sed -n 's/^Xft\.dpi:[[:space:]]*\([0-9]*\).*/\1/p' | head -1)
+  if [[ -n "$width" && "$width" -gt 0 ]]; then
+    fit=$(( 96 * width / 1280 ))
+    if (( fit < ${cur:-96} )); then
+      echo "Xft.dpi: $fit" | xrdb -merge 2>/dev/null || true
+    fi
+  fi
+fi
+exec /usr/bin/steam "$@"

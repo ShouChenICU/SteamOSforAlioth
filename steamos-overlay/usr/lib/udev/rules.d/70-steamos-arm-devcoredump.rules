@@ -1,0 +1,2 @@
+# See /usr/lib/steamos-arm/save-devcoredump.
+ACTION=="add", SUBSYSTEM=="devcoredump", RUN+="/bin/sh /usr/lib/steamos-arm/save-devcoredump %k"

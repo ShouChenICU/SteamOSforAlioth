@@ -1,0 +1,27 @@
+#!/bin/bash
+# Lenovo tablets: when neither Game Mode nor Desktop Mode is up a while after
+# boot, the screen keeps showing the bootloader's logo and the tester has
+# nothing to report. Put what went wrong on the text console instead, so a
+# photo of the screen is the log. Also kept in /var/log/steamos-arm.
+set -u
+sleep "${1:-150}"
+for p in gamescope gamescope-wl kwin_wayland plasmashell; do
+  pgrep -x "$p" >/dev/null && exit 0
+done
+out=/var/log/steamos-arm/boot-watch.txt
+mkdir -p /var/log/steamos-arm
+{
+  echo "=== SteamOS didn't reach Game Mode or Desktop Mode ($(date '+%F %T'), up $(cut -d' ' -f1 /proc/uptime)s)"
+  echo "--- firmware"
+  journalctl -b -o cat -u steamos-arm-tablet-firmware.service -u steamos-arm-gen5-firstboot.service 2>/dev/null | grep -v '^searching\|: searching' | tail -n 8
+  echo "--- graphics"
+  dmesg 2>/dev/null | grep -iE 'adreno|zap|gmu|a[678]xx|msm_dpu|msm_dsi|drm.*(err|fail)|firmware.*(fail|not found)' | tail -n 12
+  echo "--- failed units"
+  systemctl --failed --no-legend --plain 2>/dev/null | cut -d' ' -f1 | head -n 10
+  echo "--- errors"
+  journalctl -b -p 3 -o short-monotonic --no-hostname 2>/dev/null | tail -n 14
+  echo "=== Photo this screen and send it. Hold Power to turn off."
+} >"$out" 2>&1
+chvt 1 2>/dev/null
+{ printf '\033[2J\033[H'; fold -w 110 "$out"; } >/dev/tty1 2>/dev/null
+exit 0

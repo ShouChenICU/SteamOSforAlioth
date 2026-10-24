@@ -1,0 +1,11 @@
+[Unit]
+Description=Lower Deck plugin on two-screen handhelds only
+Before=plugin_loader.service
+ConditionPathExists=/usr/share/steamos-odin/decky-plugins/lower-deck
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/steamos/sync-decky-bundled-plugins.sh lower-deck
+
+[Install]
+WantedBy=multi-user.target

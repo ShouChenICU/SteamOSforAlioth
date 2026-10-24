@@ -1,0 +1,129 @@
+From: SteamOS ARM alioth port
+Subject: [PATCH] ASoC: qcom: sm8250: tell the MI2S codec what the bit clock is
+
+On alioth the two CS35L41 amps hang off TERTIARY_MI2S_RX, and opening
+the PCM got as far as a running stream with no sound and this in the
+log, once per amp:
+
+  cs35l41 3-0041: Enable(1) failed: -110
+  snd-sm8250 sound: ASoC: PRE_PMU: LCV Main AMP event failed: -110
+  cs35l41 3-0040: Enable(1) failed: -110
+  snd-sm8250 sound: ASoC: PRE_PMU: RCV Main AMP event failed: -110
+
+-110 is -ETIMEDOUT, and it comes from cs35l41_global_enable() in
+cs35l41-lib.c: with cirrus,boost-type = <0> (CS35L41_INT_BOOST) it sets
+GLOBAL_EN and then polls IRQ1_STATUS1 for PUP_DONE for 100 ms. The amp
+never finishes powering up because its PLL has nothing to lock to --
+PLL_CLK_CTRL's REFCLK_FREQ field is still at its reset value, so the
+part does not know what the SCLK it is being fed actually is.
+
+That field is written by cs35l41_component_set_sysclk(), which maps a
+frequency through cs35l41_pll_sysclk[] (1536000 is in the table, as
+0x1B). Nothing calls it here. cs35l41_pcm_hw_params() sets GLOBAL_FS,
+the ASP widths and the RX word length from the hw_params, but not the
+PLL -- the frame clock is not derivable from the sample rate alone, so
+the codec cannot work it out for itself.
+
+Both machine drivers in-tree that drive a CS35L41 do this in pairs:
+sof_cirrus_common.c and mt8189-nau8825.c each call
+snd_soc_component_set_sysclk() and then snd_soc_dai_set_sysclk() with
+the bit clock. This driver already tells the *CPU* side the rate it is
+about to generate:
+
+  snd_soc_dai_set_sysclk(cpu_dai, Q6AFE_LPASS_CLK_ID_TER_MI2S_IBIT,
+                         MI2S_BCLK_RATE, ...);
+
+so the number is right here in the same switch arm; it was simply never
+passed on to the other end of the wire.
+
+Do it for every MI2S arm and every codec DAI on the link. A codec that
+does not implement these callbacks answers -ENOTSUPP (snd-soc returns
+that when the op is absent), which is not a failure for it -- the MI2S
+links on boards whose codec needs no telling must keep working -- so
+that one value is ignored. Anything else is a real misconfiguration (a
+frequency the codec cannot lock to, say) and is worth a line in the log,
+but it still does not abort startup: the stream that comes out of a
+mis-locked amp is silent, which is exactly what we had, and a link that
+refuses to open is harder to diagnose than one that opens quietly wrong.
+
+Channel mapping is deliberately not part of this patch. Both amps
+default to ASP RX1, i.e. slot 0, so stereo content arrives as the left
+channel in both speakers. That is a separate thing to get right and it
+is audible, which this is not.
+
+--- a/sound/soc/qcom/sm8250.c
++++ b/sound/soc/qcom/sm8250.c
+@@ -78,6 +78,41 @@
+ 	return 0;
+ }
+ 
++/*
++ * Hand the codecs on an MI2S link the bit clock we are about to put on the
++ * wire. A codec whose PLL has to lock to SCLK cannot derive the frame clock
++ * from the sample rate, so without this it does not know what it is being
++ * fed; the CS35L41, for one, then never reaches PUP_DONE and its power-up
++ * times out with -ETIMEDOUT while the stream runs on, silently.
++ */
++static void sm8250_codec_set_bclk(struct snd_soc_pcm_runtime *rtd,
++				  unsigned int bclk)
++{
++	struct snd_soc_dai *codec_dai;
++	int i, ret;
++
++	for_each_rtd_codec_dais(rtd, i, codec_dai) {
++		/*
++		 * clk_id 0 is "the bit clock" for every codec that takes one
++		 * here (CS35L41_CLKID_SCLK is 0); -ENOTSUPP just means this
++		 * codec does not need telling, which is not an error.
++		 */
++		ret = snd_soc_component_set_sysclk(codec_dai->component, 0, 0,
++						   bclk, SND_SOC_CLOCK_IN);
++		if (ret < 0 && ret != -ENOTSUPP)
++			dev_warn(codec_dai->dev,
++				 "cannot set component sysclk to %u: %d\n",
++				 bclk, ret);
++
++		ret = snd_soc_dai_set_sysclk(codec_dai, 0, bclk,
++					     SND_SOC_CLOCK_IN);
++		if (ret < 0 && ret != -ENOTSUPP)
++			dev_warn(codec_dai->dev,
++				 "cannot set DAI sysclk to %u: %d\n",
++				 bclk, ret);
++	}
++}
++
+ static int sm8250_snd_startup(struct snd_pcm_substream *substream)
+ {
+ 	unsigned int fmt = SND_SOC_DAIFMT_BP_FP;
+@@ -94,6 +129,7 @@
+ 			MI2S_BCLK_RATE, SNDRV_PCM_STREAM_PLAYBACK);
+ 		snd_soc_dai_set_fmt(cpu_dai, fmt);
+ 		snd_soc_dai_set_fmt(codec_dai, codec_dai_fmt);
++		sm8250_codec_set_bclk(rtd, MI2S_BCLK_RATE);
+ 		break;
+ 	case SECONDARY_MI2S_RX:
+ 		codec_dai_fmt |= SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_I2S;
+@@ -102,6 +138,7 @@
+ 			MI2S_BCLK_RATE, SNDRV_PCM_STREAM_PLAYBACK);
+ 		snd_soc_dai_set_fmt(cpu_dai, fmt);
+ 		snd_soc_dai_set_fmt(codec_dai, codec_dai_fmt);
++		sm8250_codec_set_bclk(rtd, MI2S_BCLK_RATE);
+ 		break;
+ 	case TERTIARY_MI2S_RX:
+ 		codec_dai_fmt |= SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_I2S;
+@@ -110,6 +147,7 @@
+ 			MI2S_BCLK_RATE, SNDRV_PCM_STREAM_PLAYBACK);
+ 		snd_soc_dai_set_fmt(cpu_dai, fmt);
+ 		snd_soc_dai_set_fmt(codec_dai, codec_dai_fmt);
++		sm8250_codec_set_bclk(rtd, MI2S_BCLK_RATE);
+ 		break;
+ 	case QUINARY_MI2S_RX:
+ 		codec_dai_fmt |= SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_I2S;
+@@ -118,6 +156,7 @@
+ 			MI2S_BCLK_RATE, SNDRV_PCM_STREAM_PLAYBACK);
+ 		snd_soc_dai_set_fmt(cpu_dai, fmt);
+ 		snd_soc_dai_set_fmt(codec_dai, codec_dai_fmt);
++		sm8250_codec_set_bclk(rtd, MI2S_BCLK_RATE);
+ 		break;
+ 	default:
+ 		break;

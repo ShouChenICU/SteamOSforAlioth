@@ -1,0 +1,14 @@
+diff --git a/src/input/source/hidraw.rs b/src/input/source/hidraw.rs
+index 01d011f..e0203d0 100644
+--- a/src/input/source/hidraw.rs
++++ b/src/input/source/hidraw.rs
+@@ -329,7 +329,8 @@ impl HidRawDevice {
+             DriverType::Unknown => Err("No driver for hidraw interface found".into()),
+             DriverType::AyaneoHaptics => {
+                 let options = SourceDriverOptions {
+-                    poll_rate: Duration::from_millis(0),
++                    // Output-only driver: bound command latency without spinning while idle.
++                    poll_rate: Duration::from_millis(2),
+                     buffer_size: 1024,
+                 };
+                 let device = AyaneoHaptics::new(device_info.clone())?;

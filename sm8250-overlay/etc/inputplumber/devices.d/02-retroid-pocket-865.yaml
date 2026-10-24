@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ShadowBlip/InputPlumber/main/rootfs/usr/share/inputplumber/schema/composite_device_v1.json
+# Retroid Pocket 5 / Flip 2 / Mini / Mini V2 (SM8250) -> virtual Steam Deck
+# controller + keyboard, like our other handhelds. Takes priority over
+# InputPlumber's own Retroid profiles (Xbox Elite target). Volume keys pass
+# through to the keyboard target.
+version: 1
+kind: CompositeDevice
+name: Retroid Pocket 865
+
+matches:
+  - udev:
+      sys_path: /sys/firmware/devicetree/base
+      attributes:
+        - name: model
+          value: Retroid Pocket 5
+  - udev:
+      sys_path: /sys/firmware/devicetree/base
+      attributes:
+        - name: model
+          value: Retroid Pocket 5 Visionox
+  - udev:
+      sys_path: /sys/firmware/devicetree/base
+      attributes:
+        - name: model
+          value: Retroid Pocket Flip2
+  - udev:
+      sys_path: /sys/firmware/devicetree/base
+      attributes:
+        - name: model
+          value: Retroid Pocket Flip2 Visionox
+  - udev:
+      sys_path: /sys/firmware/devicetree/base
+      attributes:
+        - name: model
+          value: Retroid Pocket Mini
+  - udev:
+      sys_path: /sys/firmware/devicetree/base
+      attributes:
+        - name: model
+          value: Retroid Pocket Mini V2
+
+single_source: false
+
+source_devices:
+  - group: gamepad
+    evdev:
+      phys_path: retroid-pocket-gamepad/input0
+      handler: event*
+    capability_map_id: retroid_865
+
+options:
+  auto_manage: true
+
+target_devices:
+  - deck-uhid
+  - keyboard

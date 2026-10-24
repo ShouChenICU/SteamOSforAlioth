@@ -1,0 +1,387 @@
+#!/bin/busybox sh
+# Boot initramfs for SteamOS-ARM-SM8650. Mounts the root, leaves the kernel
+# log from this boot in bootlog.txt on the FAT boot partition (the only way
+# to diagnose a black screen without a serial console), then switch_roots.
+# konkr.bootlog_wait=N on the cmdline adds N extra 4-second log snapshots
+# before booting (debugging display/driver bring-up).
+#
+# Root: root=PARTLABEL=<name> (internal UFS install: STORAGE, boot log on
+# ROCKNIX); anything else is the microSD image (p1 boot, p2 root).
+# steamos.root= wins over root= (stock bootloaders may append their own).
+# Without a FAT boot partition (REDMAGIC 6) the log goes to
+# /var/log/steamos-arm-boot on the root instead.
+# steamos.usbshell=1 (or, on the REDMAGIC 6 only, a failed root mount) starts
+# a USB gadget with a serial console (ttyACM on the PC) and NCM networking
+# (ncat 172.16.42.1 23).
+/bin/busybox --install -s /bin
+export PATH=/bin
+mount -t devtmpfs dev /dev
+# The kernel could not open /dev/console before running us -- the cpio has
+# no console node, so it prints "Warning: unable to open an initial console"
+# and leaves PID 1 with no usable stdio. Every echo below would go nowhere.
+# devtmpfs has just given us the real node, so take it now: on a phone with
+# no UART the panel console is the only place these messages can land.
+exec </dev/console >/dev/console 2>&1
+mount -t proc proc /proc
+mount -t sysfs sys /sys
+mkdir -p /boot /newroot
+
+extra=0
+rootarg=""
+debug=0
+usbshell=0
+usbimage=0
+steamosroot=""
+bootlabel=ROCKNIX
+session=""
+for arg in $(cat /proc/cmdline); do
+  case "$arg" in
+    konkr.bootlog_wait=*) extra="${arg#*=}" ;;
+    steamos.debug=1) debug=1 ;;
+    steamos.usbshell=1) usbshell=1 ;;
+    steamos.usbimage=1) usbimage=1 ;;
+    steamos.root=*) steamosroot="${arg#steamos.root=}" ;;
+    # Debug boot images: log straight into Desktop Mode for this boot.
+    steamos.session=plasma) session=plasma ;;
+    # The FAT partition with the boot files, logs and the debug switch: ROCKNIX
+    # on internal handheld installs, super on the Lenovo tablets.
+    steamos.bootlabel=*) bootlabel="${arg#steamos.bootlabel=}" ;;
+    root=*) rootarg="${arg#root=}" ;;
+  esac
+done
+[ -n "$steamosroot" ] && rootarg="$steamosroot"
+
+# USB gadget: ACM serial console + NCM network with a root shell on
+# 172.16.42.1:23.
+usb_shell() {
+  [ -d /sys/kernel/config/usb_gadget ] || mount -t configfs configfs /sys/kernel/config 2>/dev/null
+  g=/sys/kernel/config/usb_gadget/steamos
+  [ -d /sys/kernel/config/usb_gadget ] || return 1
+  [ -d "$g" ] && return 0
+  for i in $(seq 1 20); do [ -n "$(ls /sys/class/udc 2>/dev/null)" ] && break; sleep 0.5; done
+  udc="$(ls /sys/class/udc 2>/dev/null | head -n1)"
+  [ -n "$udc" ] || return 1
+  mkdir -p "$g/strings/0x409" "$g/configs/c.1/strings/0x409" \
+    "$g/functions/acm.usb0" "$g/functions/acm.usb1" "$g/functions/ncm.usb0"
+  echo 0x1d6b >"$g/idVendor"; echo 0x0104 >"$g/idProduct"
+  echo "SteamOS ARM" >"$g/strings/0x409/manufacturer"
+  echo "SteamOS ARM debug shell" >"$g/strings/0x409/product"
+  # Windows rejects a gadget without a serial number string (Code 43,
+  # "invalid serial number string descriptor").
+  echo "steamos-arm-debug" >"$g/strings/0x409/serialnumber"
+  echo "debug" >"$g/configs/c.1/strings/0x409/configuration"
+  # Pin both ends of the NCM link's MACs. Left unset, the gadget invents a
+  # random locally-administered pair every boot, and then nothing on the PC
+  # can identify this interface except its name -- which encodes the USB
+  # port path (enp0s20f0u3u4i4) and changes when the cable moves. With
+  # these fixed, the PC can match the interface by MAC, which is what
+  # scripts/setup-host-usbnet.sh needs to tell NetworkManager to keep its
+  # hands off this one link and no others. 02: is locally administered,
+  # and the low bytes spell the 172.16.42.x the link uses.
+  echo "02:16:42:00:00:01" >"$g/functions/ncm.usb0/dev_addr" 2>/dev/null ||
+    echo "usbshell: cannot set ncm dev_addr"
+  echo "02:16:42:00:00:02" >"$g/functions/ncm.usb0/host_addr" 2>/dev/null ||
+    echo "usbshell: cannot set ncm host_addr"
+  # Put the kernel console on the ACM port. CONFIG_U_SERIAL_CONSOLE only
+  # creates this attribute -- nothing attaches the console until someone
+  # writes it, so the config option alone does nothing. With it set, the
+  # host's /dev/ttyACM0 carries the kernel log, which is the only way to
+  # get a copyable boot log off a phone with no UART and no root yet.
+  # Written before the UDC bind, because gserial rejects it once the port
+  # is open. Not fatal: a kernel without the option has no such file.
+  echo 1 >"$g/functions/acm.usb0/console" 2>/dev/null ||
+    echo "usbshell: no acm console attribute (CONFIG_U_SERIAL_CONSOLE=n?)"
+  ln -s "$g/functions/acm.usb0" "$g/configs/c.1/"
+  ln -s "$g/functions/acm.usb1" "$g/configs/c.1/"
+  ln -s "$g/functions/ncm.usb0" "$g/configs/c.1/"
+  echo "$udc" >"$g/UDC" || return 1
+  sleep 1
+  # The NCM netdev appears when the gadget binds, which can land after the
+  # UDC write returns. Wait for it, then address it with whichever tool
+  # this busybox has. Nothing here is silenced: a failure costs the whole
+  # network channel, and on a device whose only other channel is the panel
+  # a silent failure is indistinguishable from the gadget not working.
+  for i in $(seq 1 20); do [ -d /sys/class/net/usb0 ] && break; sleep 0.5; done
+  if [ -d /sys/class/net/usb0 ]; then
+    ip link set usb0 up && ip addr add 172.16.42.1/24 dev usb0 ||
+      ifconfig usb0 172.16.42.1 netmask 255.255.255.0 up ||
+      echo "usbshell: cannot address usb0 (no working ip/ifconfig)"
+  else
+    echo "usbshell: usb0 never appeared"
+  fi
+  # The shells live in a small root on a tmpfs with its own proc, dev and
+  # devpts: switch_root empties this initramfs and moves /proc and /dev into
+  # the new root. Each session enters PID 1's root, so after the handover it
+  # is a shell in the booted system.
+  d=/dbg
+  mkdir -p $d && mount -t tmpfs dbg $d && mkdir -p $d/bin $d/proc $d/dev &&
+    cp /bin/busybox $d/bin/busybox && mount -t proc proc $d/proc &&
+    mount -t devtmpfs devtmpfs $d/dev && mkdir -p $d/dev/pts &&
+    mount -t devpts devpts $d/dev/pts || return 1
+  printf '%s\n' '#!/bin/busybox sh' \
+    '[ -x /proc/1/root/bin/sh ] && exec /bin/busybox chroot /proc/1/root /bin/sh -l' \
+    'exec /bin/busybox sh' >$d/bin/sh
+  chmod 755 $d/bin/sh
+  # USB only: this is an unauthenticated root shell.
+  #
+  # nc, not telnetd. The ROCKNIX busybox (1.37.0) is built without the
+  # telnetd applet -- `busybox telnetd` answers "applet not found", so
+  # port 23 never had a listener in any image this project has built, and
+  # the network half of the debug channel has been dead the whole time
+  # while looking like a bind failure. Checked against `busybox --list`
+  # on the device: no telnetd, no httpd, no dropbear, but nc is there and
+  # this build has the -e/-l/-k extras. `nc -e` gives the same thing
+  # telnetd was there for: a root shell on a TCP port.
+  #
+  # The host end is any raw TCP client -- `ncat 172.16.42.1 23`, or
+  # scripts/alioth-shell.sh, which also puts the address back on the PC's
+  # usbnet interface. Not `telnet`: its IAC negotiation bytes land in the
+  # shell's stdin as garbage. There is no pty here either, so no line
+  # editing and no job control; ttyGS1 is the channel for interactive
+  # work, this one is for pasting commands and moving files.
+  #
+  # Watchdogged anyway, though the measurement that first motivated the
+  # watchdog turned out to say something else: port 23 answering RST after
+  # a Type-C host-mode round trip was not the listener dying with the
+  # gadget, it was telnetd never having existed. With nc in its place, a
+  # host-mode round trip on alioth left the listener up -- same PID, no
+  # second "listening" line in the log -- so nothing here is known to need
+  # restarting. The loop stays because it costs one grep every 2s and the
+  # failure it covers (no way into a live kernel) is the expensive one.
+  # -lk keeps nc serving across client disconnects; two sequential
+  # connections verified on the device.
+  #
+  # The loop tests for a listener rather than for the process: invoked as
+  # `busybox nc` its comm is "busybox", so pidof nc does not find it.
+  # 0017 is port 23 in /proc/net/tcp's hex. Reporting is on state change
+  # only -- the previous revision of this loop printed its failure every
+  # 5s and buried the rest of the console log.
+  setsid chroot $d /bin/busybox sh -c 'trap "" HUP; last=; while :; do
+      if /bin/busybox grep -q ":0017 " /proc/net/tcp 2>/dev/null; then
+        now=up
+      else
+        /bin/busybox setsid /bin/busybox nc -lk -p 23 -s 172.16.42.1 \
+          -e /bin/sh >/dev/null 2>&1 &
+        /bin/busybox sleep 1
+        /bin/busybox grep -q ":0017 " /proc/net/tcp 2>/dev/null &&
+          now=up || now=down
+      fi
+      if [ "$now" != "$last" ]; then
+        [ "$now" = up ] &&
+          echo "usbshell: root shell listening on 172.16.42.1:23" >/dev/kmsg ||
+          echo "usbshell: nc cannot listen on 172.16.42.1:23" >/dev/kmsg
+      fi
+      last=$now
+      /bin/busybox sleep 2
+    done' &
+  # The shell gets its own ACM port. Sharing ttyGS0 with the kernel console
+  # feeds the shell's own prompt back as input -- it then tries to run it
+  # ("/bin/sh: ^[[6n~: not found") and respawns in a tight loop, which
+  # drowns the console it was supposed to share. acm.usb0 is the console
+  # (ttyGS0, /dev/ttyACM0 on the host), acm.usb1 is the shell (ttyGS1,
+  # /dev/ttyACM1).
+  #
+  # The respawn loop reports itself to /dev/kmsg, and those two lines are
+  # what finally explained why it never brought the shell back after a
+  # Type-C host-mode round trip: the log showed one "opening" line and no
+  # "exited" line, and the loop was gone from the process table. It was
+  # killed, not finished.
+  #
+  # The killer is the hangup. setsid leaves this loop a session leader
+  # with no controlling terminal, so the plain `</dev/ttyGS1` redirection
+  # below -- done by the session leader itself -- made ttyGS1 this
+  # session's controlling terminal. When the gadget went away, the tty
+  # hung up and SIGHUP went to the session leader, which was the loop. So
+  # the one process whose job was to bring the shell back was guaranteed
+  # to die with it, every time.
+  #
+  # Two changes, and either alone would do: the inner shell opens the tty
+  # inside its own session (setsid runs before the redirection, so the
+  # controlling terminal belongs to that session and the hangup is
+  # contained there), and the loop ignores SIGHUP outright.
+  #
+  # Verified on the device without reflashing: this loop restored a dead
+  # ttyACM1 immediately; a SIGHUP to the loop's session leader left it
+  # running; and a SIGHUP to the inner shell produced
+  # "ttyGS1 shell exited (129)" followed by "opening" 1s later.
+  setsid chroot $d /bin/busybox sh -c 'trap "" HUP; while :; do
+      echo "usbshell: opening /dev/ttyGS1 for the shell" >/dev/kmsg
+      /bin/busybox setsid /bin/busybox sh -c \
+        "exec /bin/sh </dev/ttyGS1 >/dev/ttyGS1 2>&1"
+      echo "usbshell: ttyGS1 shell exited ($?), retrying in 1s" >/dev/kmsg
+      /bin/busybox sleep 1
+    done' &
+  return 0
+}
+[ "$usbshell" = 1 ] && usb_shell
+
+# /dev node of the partition with GPT name $1, if present.
+by_partlabel() {
+  for u in /sys/class/block/*/uevent; do
+    if grep -qx "PARTNAME=$1" "$u"; then
+      d="${u%/uevent}"
+      echo "/dev/${d##*/}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Partition 1 of our image on a USB drive (/dev/sdX1), if one is plugged in:
+# behind a USB controller (internal UFS shows up as sd* too), labelled BOOT.
+usb_image_boot() {
+  for p in /sys/class/block/sd*1; do
+    [ -e "$p/partition" ] || continue
+    case "$(readlink -f "$p")" in */usb*) ;; *) continue ;; esac
+    blkid "/dev/${p##*/}" 2>/dev/null | grep -q 'LABEL="BOOT"' || continue
+    echo "/dev/${p##*/}"
+    return 0
+  done
+  return 1
+}
+
+bootdev=""
+rootdev=""
+case "$rootarg" in
+  PARTLABEL=*)
+    # UFS comes up a few seconds into boot. steamos.usbimage=1 (the tablets,
+    # booted by their own bootloader with this cmdline built in): before the
+    # internal install exists, after 10 s our image on a USB drive (the
+    # installer) is used instead.
+    for i in $(seq 1 60); do
+      rootdev="$(by_partlabel "${rootarg#PARTLABEL=}")" && break
+      if [ "$usbimage" = 1 ] && [ "$i" -ge 20 ] && bootdev="$(usb_image_boot)"; then
+        rootdev="${bootdev%1}2"
+        break
+      fi
+      sleep 0.5
+    done
+    [ -n "$bootdev" ] || bootdev="$(by_partlabel "$bootlabel")"
+    ;;
+  /dev/*)
+    # A device by name: the Legion Y700 Gen 4's microSD dual boot uses
+    # root=/dev/mmcblk0, the system written to the whole card.
+    for i in $(seq 1 60); do
+      [ -b "$rootarg" ] && rootdev="$rootarg" && break
+      sleep 0.5
+    done
+    bootdev="$(by_partlabel "$bootlabel")"
+    ;;
+  *)
+    for i in $(seq 1 60); do
+      for p in /sys/class/block/mmcblk*p1; do
+        [ -e "$p" ] && bootdev="/dev/$(basename "$p")" && break 2
+      done
+      sleep 0.5
+    done
+    [ -n "$bootdev" ] && rootdev="${bootdev%p1}p2"
+    ;;
+esac
+
+logdir=""
+snap() {
+  [ -n "$logdir" ] || return
+  {
+    echo "=== $1  uptime $(cat /proc/uptime)"
+    echo "--- cmdline"; cat /proc/cmdline
+    echo "--- partitions"; cat /proc/partitions
+    echo "--- drm"; ls /sys/class/drm 2>&1
+    echo "--- dmesg"; dmesg
+  } > "$logdir/bootlog.txt" 2>&1
+  sync
+}
+
+# A 512-byte-sector FAT on a 4K-sector disk (the Lenovo Gen 3's super on UFS)
+# only mounts through a loop device, which has 512-byte sectors.
+if [ -n "$bootdev" ] && { mount -t vfat "$bootdev" /boot 2>/dev/null ||
+     mount -t vfat -o loop "$bootdev" /boot; }; then
+  logdir=/boot
+  [ -e /boot/debug ] || [ -e /boot/debug.txt ] && debug=1
+  n=0
+  while [ "$n" -lt "$extra" ]; do snap "snapshot $n"; sleep 4; n=$((n + 1)); done
+fi
+
+if [ -n "$rootdev" ] && mount -t ext4 -o rw "$rootdev" /newroot; then
+  if [ -z "$logdir" ]; then
+    logdir=/newroot/var/log/steamos-arm-boot
+    mkdir -p "$logdir"
+  fi
+  if [ -f /newroot/var/lib/konkr-update/pending ]; then
+    if ! ( . /konkr-update-recover ); then
+      snap "UPDATE RECOVERY FAILED"
+      echo "Update recovery failed; system boot stopped to protect the installation"
+      exec sh
+    fi
+  fi
+  # SteamOS's /etc overlay. SteamOS mounts it from its own initramfs; with
+  # ours, systemd's etc.mount did it a moment after systemd had read its
+  # units from the bare /etc, so services enabled on the device (sshd, ...)
+  # never started at boot. systemd adopts the existing mount.
+  o=/newroot/var/lib/overlays/etc
+  if [ -d "$o" ] && ! grep -q " /newroot/etc " /proc/mounts; then
+    mkdir -p "$o/upper" "$o/work"
+    mount -t overlay overlay \
+      -o "lowerdir=/newroot/etc,upperdir=$o/upper,workdir=$o/work" /newroot/etc ||
+      echo "etc overlay failed, leaving it to etc.mount"
+  fi
+  # Desktop Mode for this boot only (steamos.session=plasma): a file that
+  # sorts after SteamOS's own autologin, removed again on any other boot.
+  f=/newroot/etc/sddm.conf.d/zzz-steamos-arm-session.conf
+  if [ "$session" = plasma ]; then
+    mkdir -p "${f%/*}" && printf '[Autologin]\nSession=plasma.desktop\n' > "$f"
+  else
+    rm -f "$f"
+  fi
+  # Test builds can carry fixed root files (/hotfix). They are bind-mounted
+  # over the installed ones on boots from this image only, so the root stays
+  # as released and updates still apply to it. New files can only go to /etc.
+  if [ -d /hotfix ]; then
+    h=/newroot/var/lib/steamos-arm/hotfix
+    rm -rf "$h" && mkdir -p "$h" && cp -a /hotfix/. "$h/"
+    (cd "$h" && find . -type f) | while read -r p; do
+      p=${p#./}
+      if [ -f "/newroot/$p" ]; then
+        mount -o bind "$h/$p" "/newroot/$p" && snap "hotfix $p"
+      elif [ "${p%%/*}" = etc ]; then
+        mkdir -p "/newroot/${p%/*}" && cp -a "$h/$p" "/newroot/$p" && snap "hotfix new $p"
+      fi
+    done
+  fi
+  if [ "$debug" = 1 ]; then
+    # Log collector (see bootdebug), only for this boot's root.
+    d=/newroot/usr/lib/steamos-arm
+    u=/newroot/usr/lib/systemd/system
+    mkdir -p "$d" "$u/multi-user.target.wants"
+    cp /bootdebug "$d/bootdebug" && chmod 0755 "$d/bootdebug"
+    printf '[Unit]\nDescription=Copy boot logs to the FAT partition (debug)\nAfter=local-fs.target\n\n[Service]\nType=simple\nExecStart=/usr/lib/steamos-arm/bootdebug\n' > "$u/steamos-arm-bootdebug.service"
+    ln -sf ../steamos-arm-bootdebug.service "$u/multi-user.target.wants/steamos-arm-bootdebug.service"
+  else
+    rm -f /newroot/usr/lib/systemd/system/multi-user.target.wants/steamos-arm-bootdebug.service \
+      /newroot/usr/lib/systemd/system/steamos-arm-bootdebug.service
+  fi
+  snap "root mounted from $rootdev, switch_root"
+  if [ "$debug" = 1 ] && mountpoint -q /boot; then
+    # Live log: keeps copying the kernel log to BOOT every 2 s for 5 minutes
+    # after the handover, so a hang or a system that never starts bootdebug
+    # still leaves one. It keeps this initramfs as its root (and /boot with
+    # it); busybox lives on a tmpfs because switch_root empties the rest.
+    # Two files in turn, so a hang in the middle of a write loses only one.
+    mkdir -p /live && mount -t tmpfs live /live && cp /bin/busybox /live/busybox &&
+      /live/busybox sh -c 'b=/live/busybox; i=0
+        while [ $i -lt 150 ]; do
+          $b sleep 2; i=$((i + 1)); f=/boot/bootlog-live-$((i % 2)).txt
+          { echo "=== live $i  uptime $($b cat /proc/uptime)"; $b dmesg; } >$f 2>&1
+          $b sync
+        done' </dev/null >/dev/null 2>&1 &
+  else
+    umount /boot 2>/dev/null
+  fi
+  exec switch_root /newroot /sbin/init
+fi
+snap "FAILED to mount root ($rootdev)"
+echo "root mount failed; see bootlog.txt on the FAT partition"
+# Only the REDMAGIC 6 has no other way in (no SD slot, no UART).
+if grep -qa "REDMAGIC 6" /sys/firmware/devicetree/base/model 2>/dev/null; then
+  usb_shell && echo "USB debug shell: serial gadget, or ncat 172.16.42.1 23"
+fi
+exec sh

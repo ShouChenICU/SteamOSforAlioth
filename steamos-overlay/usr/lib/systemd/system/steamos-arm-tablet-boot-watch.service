@@ -1,0 +1,13 @@
+[Unit]
+Description=Show on screen why the session didn't start (Lenovo tablets)
+ConditionFirmware=|device-tree-compatible(lenovo,tb321fu)
+ConditionFirmware=|device-tree-compatible(lenovo,elden)
+ConditionFirmware=|device-tree-compatible(lenovo,baldur)
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/steamos-arm/tablet-boot-watch 150
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Loadout from the command line: emulators, PC game stores and apps, and
+# adding any game to Steam (see /usr/lib/steamos-arm/hub/loadout.py).
+exec /usr/bin/python3 /usr/lib/steamos-arm/hub/loadout.py "$@"

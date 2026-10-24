@@ -1,0 +1,10 @@
+// Steam's update button runs steamos-update as the user, in a session with
+// no password prompt: let that user start the update service, and only that.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") == "steamos-arm-update.service" &&
+        action.lookup("verb") == "start" &&
+        subject.user == "steamos") {
+        return polkit.Result.YES;
+    }
+});

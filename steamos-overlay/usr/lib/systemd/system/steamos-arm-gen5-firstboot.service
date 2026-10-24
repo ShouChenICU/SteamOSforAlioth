@@ -1,0 +1,14 @@
+[Unit]
+Description=Lenovo Legion Y700 Gen 5: the tablet's firmware and Android image hash from the card
+ConditionFirmware=device-tree-compatible(lenovo,baldur)
+DefaultDependencies=no
+After=local-fs.target
+Before=systemd-udev-trigger.service sysinit.target display-manager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/steamos-arm/gen5-firstboot
+
+[Install]
+WantedBy=sysinit.target

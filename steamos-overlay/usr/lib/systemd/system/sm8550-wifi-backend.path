@@ -1,0 +1,13 @@
+[Unit]
+Description=Keep Steam from switching Wi-Fi backend to iwd
+After=local-fs.target
+
+[Path]
+# PathChanged only: a finished write or a rename onto the file (how Steam
+# rewrites it). PathModified also fires on attribute changes.
+PathChanged=/etc/NetworkManager/conf.d/99-valve-wifi-backend.conf
+PathChanged=/var/lib/overlays/etc/upper/NetworkManager/conf.d/99-valve-wifi-backend.conf
+Unit=sm8550-wifi-backend.service
+
+[Install]
+WantedBy=multi-user.target

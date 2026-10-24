@@ -1,0 +1,66 @@
+From: SteamOS ARM alioth port
+Subject: [PATCH] input: ft8756: size the tx buffer to the transfer
+
+ft8756_spi_read() allocates four bytes for txBuf and then hands the
+controller a transfer of txlen bytes, where txlen is val_size + 9 once
+the three dummy bytes and the two CRC bytes are counted. Everything past
+the fourth byte came from whatever happened to sit next to the
+allocation, so the host clocked heap contents at the touch controller
+for the whole dummy and data phase of every read.
+
+Nothing complains, which is why this survived: the four command bytes
+are correct, so the chip sees a valid command, and both the status byte
+and the CRC the chip returns are computed over data it sent, not over
+what it received. The failure mode is a silent dependence on the
+allocator's leftovers -- the same driver reads this device correctly on
+Linux 6.15.1 (postmarketOS) and reads 0xef from registers 0xA3 and 0x9F
+on 7.2.8, where the heap next to a four-byte kmalloc holds something
+else.
+
+Also add ft8756.debug=1, which dumps the raw received frame. Working out
+the above from "Chip ID mismatch: expected 0x5652, got 0xefef" took a
+boot, a reflash and a photograph of a phone screen; the next person
+should be able to see the bytes.
+
+--- a/drivers/input/touchscreen/ft8756.c
++++ b/drivers/input/touchscreen/ft8756.c
+@@ -67,6 +67,11 @@
+ 
+ static struct drm_panel_follower_funcs ft8756_panel_follower_funcs;
+ 
++/* ft8756.debug=1: dump the raw frames. Off by default. */
++static bool ft8756_debug_frames;
++module_param_named(debug, ft8756_debug_frames, bool, 0644);
++MODULE_PARM_DESC(debug, "dump raw SPI frames");
++
+ struct ft8756_abs_object {
+ 	u16 x;
+ 	u16 y;
+@@ -155,7 +160,13 @@
+ 	struct spi_device *spi = to_spi_device((struct device *)dev);
+ 	int ret, i, j;
+ 	u32 txlen = 0;
+-	u8 *txBuf = devm_kzalloc(dev, 4, GFP_KERNEL);
++	/*
++	 * As large as the transfer: .len below is txlen, which reaches
++	 * val_size + 9 once the three dummy bytes and the CRC are counted.
++	 * A four-byte buffer made the controller clock out whatever sat
++	 * next to it in the heap for the rest of the frame.
++	 */
++	u8 *txBuf = devm_kzalloc(dev, val_size + 9, GFP_KERNEL);
+ 	if (!txBuf)
+ 		return -ENOMEM;
+ 	u8 *rxBuf = devm_kzalloc(dev, val_size + 9, GFP_KERNEL);
+@@ -190,6 +201,12 @@
+ 			usleep_range(CS_HIGH_DELAY, CS_HIGH_DELAY + 100);
+ 			continue;
+ 		}
++		if (ft8756_debug_frames) {
++			dev_err(dev, "read reg 0x%02x val_size %zu txlen %u dp %u",
++				((const u8 *)reg_buf)[0], val_size, txlen, dp);
++			print_hex_dump(KERN_ERR, "ft8756 rx ", DUMP_PREFIX_OFFSET,
++				       16, 1, rxBuf, txlen, false);
++		}
+ 		if ((rxBuf[3] & 0xA0) == 0) {
+ 			memcpy(val_buf, &rxBuf[dp], val_size);
+ 			if(txBuf[1] & DATA_CRC_EN) {

@@ -1,0 +1,1113 @@
+
+## /proc/cmdline
+
+quiet
+noirqdebug
+nodebugmon
+rcupdate.rcu_expedited=1
+rcu_nocbs=0-7
+kpti=off
+cgroup_disable=pressure
+androidboot.hardware=qcom
+androidboot.console=ttyMSM0
+androidboot.memcg=1
+lpm_levels.sleep_disabled=1
+msm_rtb.filter=0x237
+service_locator.enable=1
+androidboot.usbcontroller=a600000.dwc3
+swiotlb=2048
+loop.max_part=7
+cgroup.memory=nokmem,nosocket
+reboot=panic_warm
+androidboot.fstab_suffix=qcom
+androidboot.init_fatal_reboot_target=recovery
+kpti=off
+
+androidboot.verifiedbootstate=orange
+androidboot.keymaster=1
+
+androidboot.bootdevice=1d84000.ufshc
+androidboot.fstab_suffix=default
+androidboot.boot_devices=soc/1d84000.ufshc
+androidboot.serialno=<redacted>
+androidboot.secureboot=1
+androidboot.hwversion=9.9.0
+androidboot.cpuid=<cpuid redacted>
+androidboot.hwc=CN
+androidboot.hwlevel=MP
+androidboot.product.hardware.sku=pro
+androidboot.baseband=mdm
+msm_drm.dsi_display0=qcom,mdss_dsi_k11a_38_08_0a_dsc_cmd:
+androidboot.oled_wp=<oled_wp redacted>
+androidboot.slot_suffix=_b
+rootwait
+ro
+init=/init
+androidboot.dtbo_idx=0
+androidboot.dtb_idx=0
+androidboot.force_normal_boot=1
+androidboot.ramdump=disable
+block2mtd.block2mtd=/dev/block/sda15,2097152
+mtdoops.mtddev=0
+mtdoops.record_size=2097152
+mtdoops.dump_oops=0
+printk.always_kmsg_dump=1
+androidboot.dp=0x0
+androidboot.cert=M2012K11AC
+
+## SoC / board
+
+[bluetooth.hardware.power.operating_voltage_mv]: [3300]
+[init.svc.vendor.qti.hardware.display.allocator]: [running]
+[init.svc.vendor.qti.hardware.display.composer]: [running]
+[init.svc.vendor.qti.hardware.memtrack]: [running]
+[init.svc_debug_pid.vendor.qti.hardware.display.allocator]: [1185]
+[init.svc_debug_pid.vendor.qti.hardware.display.composer]: [1186]
+[init.svc_debug_pid.vendor.qti.hardware.memtrack]: [1179]
+[ro.board.api_frozen]: [true]
+[ro.board.api_level]: [202504]
+[ro.board.platform]: [kona]
+[ro.boot.hardware]: [qcom]
+[ro.boot.hardware.cpu.pagesize]: [4096]
+[ro.boot.hardware.revision]: [CN_MP_9.9.0]
+[ro.boot.hardware.sku]: []
+[ro.boot.hwc]: [CN]
+[ro.boot.hwlevel]: [MP]
+[ro.boot.hwversion]: [9.9.0]
+[ro.boot.product.hardware.sku]: [nfc]
+[ro.boottime.vendor.qti.hardware.display.allocator]: [9725587495]
+[ro.boottime.vendor.qti.hardware.display.composer]: [9727051609]
+[ro.boottime.vendor.qti.hardware.memtrack]: [9717158588]
+[ro.hardware]: [qcom]
+[ro.hardware.audio.primary]: [alioth]
+[ro.hardware.egl]: [adreno]
+[ro.hardware.keystore_desede]: [true]
+[ro.hardware.vulkan]: [adreno]
+[ro.product.board]: [kona]
+[ro.soc.manufacturer]: [QTI]
+[ro.soc.model]: [SM8250]
+
+## input devices
+
+I: Bus=0000 Vendor=0000 Product=0000 Version=0000
+N: Name="xiaomi-touch"
+P: Phys=xiaomi-touch/input0
+S: Sysfs=/devices/virtual/input/input0
+U: Uniq=
+H: Handlers=event0 devfreq_boost_handle 
+B: PROP=0
+B: EV=3
+B: KEY=80000 1 0 0 0 0
+
+I: Bus=0000 Vendor=0000 Product=0000 Version=0000
+N: Name="qpnp_pon"
+P: Phys=qpnp_pon/input0
+S: Sysfs=/devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.qcom,spmi:qcom,pm8150@0:qcom,power-on@800/input/input1
+U: Uniq=
+H: Handlers=event1 devfreq_boost_handle 
+B: PROP=0
+B: EV=3
+B: KEY=14000000000000 0
+
+I: Bus=001c Vendor=0000 Product=0000 Version=0000
+N: Name="fts_ts"
+P: Phys=
+S: Sysfs=/devices/platform/soc/990000.spi/spi_master/spi1/spi1.0/input/input2
+U: Uniq=
+H: Handlers=event2 devfreq_boost_handle 
+B: PROP=2
+B: EV=b
+B: KEY=400000400 0 0 8000 10168000000000 4d04081460000
+B: ABS=260800000000000
+
+I: Bus=0000 Vendor=0000 Product=0000 Version=0000
+N: Name="aw8697_haptic"
+P: Phys=
+S: Sysfs=/devices/platform/soc/a8c000.i2c/i2c-2/2-005a/input/input3
+U: Uniq=
+H: Handlers=event3 
+B: PROP=0
+B: EV=200001
+B: FF=120070000 0
+
+I: Bus=0019 Vendor=0001 Product=0001 Version=0100
+N: Name="gpio-keys"
+P: Phys=gpio-keys/input0
+S: Sysfs=/devices/platform/soc/soc:gpio_keys/input/input4
+U: Uniq=
+H: Handlers=event4 devfreq_boost_handle 
+B: PROP=0
+B: EV=3
+B: KEY=8000000000000 0
+
+I: Bus=0000 Vendor=0000 Product=0000 Version=0000
+N: Name="kona-mtp-snd-card Headset Jack"
+P: Phys=ALSA
+S: Sysfs=/devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/input5
+U: Uniq=
+H: Handlers=event5 
+B: PROP=0
+B: EV=21
+B: SW=1e00d4
+
+I: Bus=0000 Vendor=0000 Product=0000 Version=0000
+N: Name="kona-mtp-snd-card Button Jack"
+P: Phys=ALSA
+S: Sysfs=/devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/input6
+U: Uniq=
+H: Handlers=event6 devfreq_boost_handle 
+B: PROP=0
+B: EV=3
+B: KEY=40 0 0 0 0 30 400000000 0 c000000000000 0
+
+I: Bus=0000 Vendor=0000 Product=0000 Version=0000
+N: Name="kona-mtp-snd-card USB_3_5 Jack"
+P: Phys=ALSA
+S: Sysfs=/devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/input7
+U: Uniq=
+H: Handlers=event7 
+B: PROP=0
+B: EV=21
+B: SW=100014
+
+I: Bus=0006 Vendor=0666 Product=0888 Version=0000
+N: Name="uinput-fpc"
+P: Phys=
+S: Sysfs=/devices/virtual/input/input8
+U: Uniq=
+H: Handlers=event8 devfreq_boost_handle 
+B: PROP=0
+B: EV=b
+B: KEY=168000000000 0
+B: ABS=4
+
+
+## spi devices
+
+spi0.0 modalias=spi:ir-spi-led of=soc/spi@988000/ir-spi@0 drv=ir-spi-led
+spi1.0 modalias=spi:fts of=soc/spi@990000/focaltech@0 drv=fts_ts
+
+## i2c devices
+
+0-0028 name=nq-nci of=soc/i2c@984000/nq@28 drv=nq-nci
+1-0040 name=cs35l41 of=soc/i2c@98c000/cs35l41@40 drv=cs35l41
+1-0041 name=cs35l41 of=soc/i2c@98c000/cs35l41@41 drv=cs35l41
+2-005a name=aw8697_haptic of=soc/i2c@a8c000/aw8697_haptic@5A drv=aw8697_haptic
+3-0018 name=i2c-pmic of=soc/i2c@884000/qcom,smb1390_slave@18 drv=i2c_pmic
+3-0042 name=fsa4480-i2c of=soc/i2c@884000/fsa4480@42 drv=fsa4480-driver
+3-0066 name=bq2597x-standalone of=soc/i2c@884000/bq25970-standalone@66 drv=bq2597x-charger
+4-0008 name=i2c-pmic of=soc/i2c@888000/qcom,pm8008@8 drv=i2c_pmic
+4-0009 name=i2c-pmic of=soc/i2c@888000/qcom,pm8008@9 drv=i2c_pmic
+4-003b name=p9415 of=soc/i2c@888000/idtp9415@3b drv=
+4-0055 name=ln8282 of=soc/i2c@888000/ln8282@55 drv=
+4-0061 name=wl_charger_rx1619 of=soc/i2c@888000/rx1619@61 drv=
+4-0067 name=wl_rx1619_trim of=soc/i2c@888000/rx1619@67 drv=
+i2c-0 name=Geni-I2C of=soc/i2c@984000 drv=
+i2c-1 name=Geni-I2C of=soc/i2c@98c000 drv=
+i2c-2 name=Geni-I2C of=soc/i2c@a8c000 drv=
+i2c-3 name=Geni-I2C of=soc/i2c@884000 drv=
+i2c-4 name=Geni-I2C of=soc/i2c@888000 drv=
+
+## platform drivers bound
+
+CAM-FLASH-DRIVER adsp-loader alarmtimer arm-memlat-mon arm-smmu arm_dsu_pmu armv8-pmu audio-ref-clk audio_apr bcl_pmic5 bcl_soc_peripheral bimc-bwmon bolero-clk-rsc-mngr bolero-codec bt_power cam-a5 cam-bps cam-cci-driver cam-cpas cam-csiphy-driver cam-ipe cam-jpeg-dma cam-jpeg-enc cam_cc-kona cam_custom cam_custom_sub_mod cam_fd cam_fd_hw cam_icp cam_isp cam_jpeg cam_lrme cam_lrme_hw cam_req_mgr cam_res_mgr cam_sync cam_vfe cdsp-l3 cdsp-loader clk-rpmh cmd-db cnss2 coresight-clk-disable cp-qc30 csid_17x csid_lite dev_avtimer devbw devfreq-qcom-fw devfreq-qcom-qoslat devfreq-simple-dev disp_cc-kona drm_dsi_ctrl dsi_phy dwc3 dwc3-of-simple dwc3-qcom ext-mdm extcon-gpio fastrpc fpc1020 gcc-kona gdsc generic-bl geni_i3c_master glink_pkt gpi_dma gpio-clk gpio-keys gpu_cc-kona gsi i2c_geni ion-msm ipa ipa_mpm kgsl-3d kgsl-busmon kona-asoc-snd kona-llcc kona-pinctrl lpm-levels maxim_ds28e16 mdss_pll msm-audio-ion msm-auxpcm-dev msm-cdc-pinctrl msm-compress-dsp msm-dai-cdc-dma msm-dai-cdc-dma-dev msm-dai-fe msm-dai-mi2s msm-dai-q6 msm-dai-q6-dev msm-dai-q6-meta-mi2s msm-dai-q6-mi2s msm-dai-q6-spdif msm-dai-q6-tdm msm-dai-stub msm-dai-stub-dev msm-dai-tdm msm-dsi-display msm-dwc3 msm-eud msm-lsm-client msm-pcm-afe msm-pcm-dsp msm-pcm-dsp-noirq msm-pcm-dtmf msm-pcm-hostless msm-pcm-loopback msm-pcm-routing msm-pcm-voice msm-restart msm-stub-codec msm-transcode-loopback msm-tsens msm-usb-hsphy msm-usb-ssphy-qmp msm-voice-host-pcm msm-voip-dsp msm_bus_device msm_bus_proxy_client_device msm_bus_rsc msm_bus_rules_device msm_cam_cdm msm_cam_cdm_intf msm_cam_smmu msm_cdsp_rm msm_cvp_v4l2 msm_drm msm_geni_serial msm_glink msm_hdcp msm_hvx_rm msm_isense_cdsp msm_lmh_dcvs msm_mem_dump msm_notifier msm_npu msm_rng msm_sps msm_vidc_v4l2 msm_watchdog msmdrm_smmu ngd_msm_ctrl npu_cc-kona of_fixed_clk of_fixed_factor_clk onewire_gpio pci-msm q6core_audio qce qcom,actuator qcom,adc-tm qcom,camera qcom,custom-csid qcom,eeprom qcom,fg-gen4 qcom,ois qcom,pm8008-chip qcom,pm8008-regulator qcom,pwm-lpg qcom,qfprom qcom,qnovo5-driver qcom,qpnp-amoled-regulator qcom,qpnp-flash-led-v2 qcom,qpnp-lcdb-regulator qcom,qpnp-pbs qcom,qpnp-power-on qcom,qpnp-revid qcom,qpnp-smb5 qcom,refgen-regulator qcom,rpmh-regulator qcom,spmi-pmic-clkdiv qcom,spmi-sdam qcom,tri-led qcom-cpufreq-hw qcom-llcc-pmu qcom-lpi-pinctrl qcom-rpmh-regulator qcom-smem qcom-spmi-adc5.c qcom-spmi-gpio qcom-spmi-mpp qcom-spmi-wled qcom-wcd-pinctrl qcom_apcs_ipc qcom_hwspinlock qcom_ipcc qcom_scm qcom_smp2p qcrypto qmi-cooling-device qmi-therm-sensors qmp-aop-clk qmp_mbox qpnp-pdphy qsee_ipc_irq_bridge qsee_irq qseecom qsmmuv500-tbu qupv3_geni_se ramoops reg-dummy reg-fixed-voltage rmnet_ipa3 rpmh rtc-pm8xxx rx_macro sde_rotator sde_rsc sde_rsc_rpmh sde_smmu sde_wb sensors-ssc smcinvoke smp2p_sleepstate snd-soc-dummy soc-audio spcom spi_geni spmi-temp-alarm spmi_pmic_arb spss_utils static-map stub-regulator subsys-pil-tz swr-wcd syscon system_pm tx_macro uaudio-qmi ufs_qcom_phy_qmp_v4 ufs_qcom_phy_qrbtc_sdm845 ufshcd-qcom us_prox usb_bam usb_emu_phy usb_phy_generic usbpd-pm va_macro video_cc-kona voice_mhi_audio wcd-dsp-mgr wcd938x_codec wsa_macro xhci-hcd xiaomi-touch 
+## net
+
+dummy0 xx:xx:xx:xx:xx:xx
+ip6_vti0 00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00
+ip6tnl0 00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00
+ip_vti0 00:00:00:00
+lo 00:00:00:00:00:00
+p2p0 xx:xx:xx:xx:xx:xx
+r_rmnet_data0 
+r_rmnet_data1 
+r_rmnet_data2 
+r_rmnet_data3 
+rmnet_data0 
+rmnet_data1 
+rmnet_data2 
+rmnet_data3 
+rmnet_data4 
+rmnet_data5 
+rmnet_ipa0 
+rmnet_mhi0 
+sit0 00:00:00:00
+wifi-aware0 xx:xx:xx:xx:xx:xx
+wlan0 xx:xx:xx:xx:xx:xx
+wlan1 xx:xx:xx:xx:xx:xx
+
+## wifi/bt props
+
+[bluetooth.device.class_of_device]: [90,2,12]
+[bluetooth.device.default_name]: [Redmi K40]
+[bluetooth.hardware.power.operating_voltage_mv]: [3300]
+[bluetooth.profile.a2dp.source.enabled]: [true]
+[bluetooth.profile.asha.central.enabled]: [true]
+[bluetooth.profile.avrcp.target.enabled]: [true]
+[bluetooth.profile.bap.broadcast.assist.enabled]: [true]
+[bluetooth.profile.bap.unicast.client.enabled]: [true]
+[bluetooth.profile.bas.client.enabled]: [true]
+[bluetooth.profile.ccp.server.enabled]: [true]
+[bluetooth.profile.csip.set_coordinator.enabled]: [true]
+[bluetooth.profile.gatt.enabled]: [true]
+[bluetooth.profile.hap.client.enabled]: [true]
+[bluetooth.profile.hfp.ag.enabled]: [true]
+[bluetooth.profile.hid.device.enabled]: [true]
+[bluetooth.profile.hid.host.enabled]: [true]
+[bluetooth.profile.map.server.enabled]: [true]
+[bluetooth.profile.mcp.server.enabled]: [true]
+[bluetooth.profile.opp.enabled]: [true]
+[bluetooth.profile.pan.nap.enabled]: [true]
+[bluetooth.profile.pan.panu.enabled]: [true]
+[bluetooth.profile.pbap.server.enabled]: [true]
+[bluetooth.profile.sap.server.enabled]: [true]
+[bluetooth.profile.vcp.controller.enabled]: [true]
+[dev.mnt.blk.vendor.bt_firmware]: [sde31]
+[dev.mnt.dev.vendor.bt_firmware]: [sde31]
+[dev.mnt.rootdisk.vendor.bt_firmware]: [sde]
+[init.svc.cnss-daemon]: [running]
+[init.svc.vendor.bluetooth-1-0-qti]: [running]
+[init.svc.vendor.btmac-sh]: [stopped]
+[init.svc.vendor.wifi_hal_legacy]: [running]
+[init.svc.wificond]: [running]
+[init.svc.wifidisplayhalservice]: [running]
+[init.svc_debug_pid.cnss-daemon]: [1668]
+[init.svc_debug_pid.vendor.bluetooth-1-0-qti]: [1163]
+[init.svc_debug_pid.vendor.btmac-sh]: []
+[init.svc_debug_pid.vendor.wifi_hal_legacy]: [1178]
+[init.svc_debug_pid.wificond]: [1641]
+[init.svc_debug_pid.wifidisplayhalservice]: [1651]
+[net.bt.name]: [Android]
+
+## asound
+
+ 0 [konamtpsndcard ]: kona-mtp-snd-ca - kona-mtp-snd-card
+                      kona-mtp-snd-card
+card0
+cards
+devices
+hwdep
+konamtpsndcard
+pcm
+timers
+version
+
+## sound codecs
+
+[aaudio.hw_burst_min_usec]: [2000]
+[aaudio.mmap_exclusive_policy]: [2]
+[aaudio.mmap_policy]: [1]
+[audio.deep_buffer.media]: [true]
+[audio.safemedia.bypass]: [1]
+[audio.spatializer.effect.util_clamp_min]: [300]
+[init.svc.audioserver]: [running]
+[init.svc.media.swcodec]: [running]
+[init.svc.vendor.adsprpcd_audiopd]: [running]
+[init.svc.vendor.audio-hal]: [running]
+[init.svc_debug_pid.audioserver]: [1217]
+[init.svc_debug_pid.media.swcodec]: [1663]
+[init.svc_debug_pid.vendor.adsprpcd_audiopd]: [1661]
+[init.svc_debug_pid.vendor.audio-hal]: [1146]
+[log.tag.APM_AudioPolicyManager]: [D]
+[persist.vendor.audio.ambisonic.auto.profile]: [false]
+[persist.vendor.audio.ambisonic.capture]: [false]
+[persist.vendor.audio.apptype.multirec.enabled]: [false]
+[persist.vendor.audio.avs.afe_api_version]: [2]
+[persist.vendor.audio.delta.refresh]: [false]
+[persist.vendor.audio.fluence.speaker]: [true]
+[persist.vendor.audio.fluence.tmic.enabled]: [false]
+[persist.vendor.audio.fluence.voicecall]: [true]
+[persist.vendor.audio.fluence.voicecomm]: [true]
+[persist.vendor.audio.fluence.voicerec]: [false]
+[persist.vendor.audio.misound.disable]: [true]
+[persist.vendor.audio.ras.enabled]: [false]
+[persist.vendor.audio.ring.filter.mask]: [0]
+[persist.vendor.audio.spatializer.speaker_enabled]: [true]
+[persist.vendor.audio.spv3.enable]: [true]
+
+## power_supply
+
+--- batt_verify
+    type=Nothing attached
+--- battery
+    type=Battery
+    technology=Li-poly
+    charge_full_design=4520000
+    charge_full=4513000
+    capacity=72
+    status=Charging
+--- bms
+    type=BMS
+    voltage_max_design=4450000
+    charge_full_design=4520000
+    charge_full=4513000
+    capacity=72
+--- bq2597x-standalone
+    type=Mains
+    model_name=bq2597x-standalone
+    status=Unknown
+--- dc
+    type=Wireless
+--- main
+    type=Main
+--- pc_port
+    type=USB
+--- usb
+    type=USB
+    voltage_max_design=5000000
+
+## thermal zones
+
+thermal_zone0 aoss0-usr
+thermal_zone1 cpu-0-0-usr
+thermal_zone10 cpu-1-3-usr
+thermal_zone11 cpu-1-4-usr
+thermal_zone12 cpu-1-5-usr
+thermal_zone13 cpu-1-6-usr
+thermal_zone14 cpu-1-7-usr
+thermal_zone15 gpuss-0-usr
+thermal_zone16 aoss-1-usr
+thermal_zone17 cwlan-usr
+thermal_zone18 video-usr
+thermal_zone19 ddr-usr
+thermal_zone2 cpu-0-1-usr
+thermal_zone20 q6-hvx-usr
+thermal_zone21 camera-usr
+thermal_zone22 cmpss-usr
+thermal_zone23 npu-usr
+thermal_zone24 gpuss-1-usr
+thermal_zone25 gpuss-max-step
+thermal_zone26 apc-0-max-step
+thermal_zone27 apc-1-max-step
+thermal_zone28 pop-mem-step
+thermal_zone29 cpu-0-0-step
+thermal_zone3 cpu-0-2-usr
+thermal_zone30 cpu-0-1-step
+thermal_zone31 cpu-0-2-step
+thermal_zone32 cpu-0-3-step
+thermal_zone33 cpu-1-0-step
+thermal_zone34 cpu-1-1-step
+thermal_zone35 cpu-1-2-step
+thermal_zone36 cpu-1-3-step
+thermal_zone37 cpu-1-4-step
+thermal_zone38 cpu-1-5-step
+thermal_zone39 cpu-1-6-step
+thermal_zone4 cpu-0-3-usr
+thermal_zone40 cpu-1-7-step
+thermal_zone41 cwlan-step
+thermal_zone42 video-step
+thermal_zone43 ddr-step
+thermal_zone44 q6-hvx-step
+thermal_zone45 camera-step
+thermal_zone46 cmpss-step
+thermal_zone47 npu-step
+thermal_zone48 modem1_pa0
+thermal_zone49 modem1_pa1
+thermal_zone5 cpuss-0-usr
+thermal_zone50 modem-mmw0-usr
+thermal_zone51 modem-mmw1-usr
+thermal_zone52 modem-mmw2-usr
+thermal_zone53 modem-mmw3-usr
+thermal_zone54 modem1_xo
+thermal_zone55 modem1_wifi
+thermal_zone56 modem1_quiet
+thermal_zone57 modem-0-usr
+thermal_zone58 modem-1-usr
+thermal_zone59 modem-streamer-usr
+thermal_zone6 cpuss-1-usr
+thermal_zone60 modem-mmw0-mod-usr
+thermal_zone61 modem-mmw1-mod-usr
+thermal_zone62 modem-mmw2-mod-usr
+thermal_zone63 modem-mmw3-mod-usr
+thermal_zone64 pm8150_tz
+thermal_zone65 pm8150b_tz
+thermal_zone66 pm8150b-ibat-lvl0
+thermal_zone67 pm8150b-ibat-lvl1
+thermal_zone68 pm8150b-vbat-lvl0
+thermal_zone69 pm8150b-vbat-lvl1
+thermal_zone7 cpu-1-0-usr
+thermal_zone70 pm8150b-vbat-lvl2
+thermal_zone71 pm8150b-bcl-lvl0
+thermal_zone72 pm8150b-bcl-lvl1
+thermal_zone73 pm8150b-bcl-lvl2
+thermal_zone74 soc
+thermal_zone75 pm8150l_tz
+thermal_zone76 pm8150l-vph-lvl0
+thermal_zone77 pm8150l-vph-lvl1
+thermal_zone78 pm8150l-vph-lvl2
+thermal_zone79 pm8150l-bcl-lvl0
+thermal_zone8 cpu-1-1-usr
+thermal_zone80 pm8150l-bcl-lvl1
+thermal_zone81 pm8150l-bcl-lvl2
+thermal_zone82 wireless_therm
+thermal_zone83 conn_therm
+thermal_zone84 xo-therm-adc
+thermal_zone85 cpu_therm
+thermal_zone86 quiet_therm
+thermal_zone87 pa_therm0
+thermal_zone88 pa_therm1
+thermal_zone89 charger_therm0
+thermal_zone9 cpu-1-2-usr
+thermal_zone90 wifi_therm
+thermal_zone91 bms
+thermal_zone92 battery
+
+## drm
+
+card0
+card0-DSI-1
+card0-Virtual-1
+renderD128
+sde-crtc-0
+sde-crtc-1
+version
+card0-DSI-1 connected 1080x2400x60x183357cmd
+card0-Virtual-1 connected 4096x2160
+
+## backlight
+
+panel0-backlight max=2047
+
+## panel / touch sysfs
+
+panel_color=2
+panel_display=8
+panel_vendor=H
+touch_vendor=3
+
+## video4linux
+
+v4l-subdev0 cam-cpas
+v4l-subdev1 cam-isp
+v4l-subdev10 cam-sensor-driver
+v4l-subdev11 cam-sensor-driver
+v4l-subdev12 cam-sensor-driver
+v4l-subdev13 cam-sensor-driver
+v4l-subdev14 cam-eeprom
+v4l-subdev15 cam-eeprom
+v4l-subdev16 cam-eeprom
+v4l-subdev17 cam-eeprom
+v4l-subdev18 cam-flash-dev
+v4l-subdev19 cam-flash-dev
+v4l-subdev2 cam-csiphy-driver
+v4l-subdev20 cam-flash-dev
+v4l-subdev21 cam-icp
+v4l-subdev22 cam-jpeg
+v4l-subdev23 cam-fd
+v4l-subdev3 cam-csiphy-driver
+v4l-subdev4 cam-csiphy-driver
+v4l-subdev5 cam-csiphy-driver
+v4l-subdev6 cam-csiphy-driver
+v4l-subdev7 cam-csiphy-driver
+v4l-subdev8 cam-actuator-driver
+v4l-subdev9 cam-actuator-driver
+video0 cam-req-mgr
+video1 cam_sync
+video32 
+video33 
+
+## camera props
+
+[camera.disable_zsl_mode]: [true]
+[crashrecovery.rescue_boot_count]: [1]
+[init.svc.cameraserver]: [running]
+[init.svc.vendor.camera-provider-2-4]: [running]
+[init.svc_debug_pid.cameraserver]: [1628]
+[init.svc_debug_pid.vendor.camera-provider-2-4]: [1166]
+[net.tethering.noprovisioning]: [true]
+[persist.dbg.volte_avail_ovr]: [1]
+[persist.dbg.vt_avail_ovr]: [1]
+[persist.dbg.wfc_avail_ovr]: [1]
+[persist.device_config.remote_key_provisioning_native.enable_rkpd]: [false]
+[persist.device_config.runtime_native_boot.pin_camera]: [false]
+[persist.device_config.storage_native_boot.take_over_get_content]: [true]
+[persist.sys.activity_anim_perf_override]: [false]
+[persist.sys.cam.skip_detach_image]: [true]
+[persist.sys.device_provisioned]: [1]
+[persist.sys.dun.override]: [0]
+[persist.sys.fflag.override.settings_wifi_multista]: [false]
+[persist.vendor.camera.frontMain.info]: [/vendor/lib64/camera/com.qti.sensormodule.alioth_sunny_s5k3t2_front.bin]
+[persist.vendor.camera.frontMain.vendorID]: [01]
+[persist.vendor.camera.logInfoMask]: [false]
+[persist.vendor.camera.logLevel]: [0]
+[persist.vendor.camera.mi.dualcal.detail]: [0]
+[persist.vendor.camera.mi.dualcal.exist]: [0]
+[persist.vendor.camera.mi.dualcal.state]: [0]
+[persist.vendor.camera.mi.module.info]: [back_main=imx582;back_ultra=imx355_i;]
+[persist.vendor.camera.mi.module.infoext]: [front_main=s5k3t2_i;back_macro2x=s5k5e9_i;]
+[persist.vendor.camera.perflock.enable]: [0]
+[persist.vendor.camera.privapp.list]: [com.android.camera]
+[persist.vendor.camera.rearMacro2x.info]: [/vendor/lib64/camera/com.qti.sensormodule.alioth_sunny_s5k5e9yx04_macro.bin]
+[persist.vendor.camera.rearMacro2x.vendorID]: [01]
+[persist.vendor.camera.rearMain.info]: [/vendor/lib64/camera/com.qti.sensormodule.alioth_sunny_imx582_wide.bin]
+[persist.vendor.camera.rearMain.vendorID]: [01]
+[persist.vendor.camera.rearUltra.info]: [/vendor/lib64/camera/com.qti.sensormodule.alioth_ofilm_imx355_ultra.bin]
+[persist.vendor.camera.rearUltra.vendorID]: [07]
+[persist.vendor.camera.sensor]: [0]
+[persist.vendor.sensors.allow_non_default_discovery]: [true]
+[remote_provisioning.connect_timeout_millis]: [2000]
+[remote_provisioning.enable_rkpd]: [true]
+[remote_provisioning.hostname]: [remoteprovisioning.googleapis.com]
+
+## fingerprint props
+
+[bluetooth.profile.hfp.ag.enabled]: [true]
+[debug.sf.high_fps_early_gl_phase_offset_ns]: [-4000000]
+[debug.sf.high_fps_early_phase_offset_ns]: [-4000000]
+[debug.sf.high_fps_late_app_phase_offset_ns]: [1000000]
+[debug.sf.high_fps_late_sf_phase_offset_ns]: [-4000000]
+[init.svc.vendor.fingerprint-default]: [running]
+[init.svc_debug_pid.vendor.fingerprint-default]: [1702]
+[persist.sys.udfps.custom]: [false]
+[persist.vendor.fingerprint.sensor_location]: [1080|965|115|local:4630946736638489729]
+[persist.vendor.fingerprint.type]: [side]
+[persist.vendor.qfp]: [false]
+[persist.vendor.sys.fp.info]: [0x00000054140102ff]
+[persist.vendor.sys.fp.module]: [Truly]
+[persist.vendor.sys.fp.uid]: [00316631-32333432-37353131-33653132]
+[persist.vendor.sys.fp.vendor]: [fpc]
+[ro.bootimage.build.fingerprint]: [POCO/twrp_alioth/alioth:99.87.36/SP2A.220405.004/darth905020831:eng/test-keys]
+[ro.boottime.vendor.fingerprint-default]: [10638958067]
+[ro.build.fingerprint]: [POCO/alioth_global/alioth:13/TKQ1.221114.001/V816.0.3.0.TKHMIXM:user/release-keys]
+[ro.build.version.preview_sdk_fingerprint]: [REL]
+[ro.odm.build.fingerprint]: [POCO/alioth_global/alioth:13/TKQ1.221114.001/V816.0.3.0.TKHMIXM:user/release-keys]
+
+## sensors
+
+*  
+
+## block / ufs
+
+WDC      SDINFDK4-128G    1270
+WDC      SDINFDK4-128G    1270
+WDC      SDINFDK4-128G    1270
+WDC      SDINFDK4-128G    1270
+WDC      SDINFDK4-128G    1270
+WDC      SDINFDK4-128G    1270
+WDC      SDINFDK4-128G    1270
+WDC      SDINFDK4-128G    1270
+WDC      SDINFDK4-128G    1270
+245202944
+
+## usb / typec
+
+[init.svc.usbd]: [stopped]
+[init.svc.vendor.usb-hal]: [running]
+[init.svc.vendor.usbgadget-hal]: [running]
+[init.svc_debug_pid.usbd]: []
+[init.svc_debug_pid.vendor.usb-hal]: [1176]
+[init.svc_debug_pid.vendor.usbgadget-hal]: [1748]
+[oplusboot.verifiedbootstate]: [green]
+[persist.data.df.dev_name]: [rmnet_usb0]
+[persist.sys.usb.config]: [adb]
+[persist.vendor.usb.config]: []
+[persist.vendor.usb.config.extra]: [none]
+[ro.audio.usb.period_us]: [20375]
+[ro.boot.usbcontroller]: [a600000.dwc3]
+[ro.boottime.usbd]: [10637437859]
+[ro.boottime.vendor.usb-hal]: [9701577390]
+[ro.boottime.vendor.usbgadget-hal]: [9704911557]
+[ro.recovery.usb.adb.pid]: [D001]
+[ro.recovery.usb.fastboot.pid]: [4EE0]
+[ro.recovery.usb.vid]: [18D1]
+[ro.vendor.audio.soundfx.usb]: [true]
+
+## modules
+
+
+## regulators
+
+regulator-dummy  
+pm8150a_s3_level enabled 256
+pm8150_l2 enabled 3072000
+pm8150_l3 disabled 928000
+pm8150_l4_level disabled 16
+pm8150_l5 enabled 880000
+pm8150_l5_ao enabled 880000
+pm8150_l5_so disabled 880000
+pm8150_l6 enabled 1200000
+pm8150_l7 disabled 1704000
+pm8150_l9 enabled 1200000
+pm8150_l10 disabled 1800000
+pm8150a_s3_level_ao enabled 128
+pm8150_l11_level disabled 16
+pm8150_l12 enabled 1800000
+pm8150_l12_ao enabled 1800000
+pm8150_l12_so disabled 1800000
+pm8150_l13 enabled 3304000
+pm8150_l14 enabled 1880000
+pm8150_l15 disabled 1800000
+pm8150_l16 disabled 3024000
+pm8150_l17 enabled 2504000
+pm8150_l18 disabled 800000
+pm8150a_s3_mmcx_sup_level enabled 256
+pm8150a_s1_level disabled 48
+pm8150a_s4_level enabled 256
+pm8150a_s4_level_ao disabled 64
+pm8150a_s4_level_so disabled 64
+pm8150a_s6_level disabled 16
+pm8150a_s7 disabled 348000
+pm8150a_s8 enabled 1200000
+pm8150a_l1 enabled 1800000
+pm8150a_l2 disabled 1200000
+pm8150a_l3 disabled 800000
+pm8150_s3_level enabled 256
+pm8150a_l4 disabled 1800000
+pm8150a_l5 disabled 1800000
+pm8150a_l6 disabled 1800000
+pm8150a_l7 disabled 2856000
+pm8150a_l8 disabled 1800000
+pm8150a_l9 disabled 2704000
+pm8150a_l10 enabled 3200000
+pm8150a_l11 enabled 3000000
+pm8150a_bob enabled 3296000
+pm8150a_bob_ao disabled 3008000
+pm8150_s3_level_ao enabled 64
+refgen disabled 
+pcie_0_gdsc enabled 
+pcie_1_gdsc disabled 
+pcie_2_gdsc enabled 
+ufs_card_gdsc disabled 
+ufs_phy_gdsc disabled 
+usb30_prim_gdsc enabled 
+usb30_sec_gdsc disabled 
+hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc disabled 
+hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc disabled 
+pm8150_s3_mmcx_sup_level disabled 64
+hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc disabled 
+hlos1_vote_mmnoc_mmu_tbu_sf1_gdsc disabled 
+gpu_cx_gdsc disabled 
+gpu_gx_gdsc disabled 
+display_panel_vci disabled 3000000
+disp_vddio_vreg disabled 
+bps_gdsc disabled 
+ife_0_gdsc disabled 
+ife_1_gdsc disabled 
+ipe_0_gdsc disabled 
+pm8150_s4 enabled 1800000
+sbi_gdsc disabled 
+titan_top_gdsc disabled 
+mdss_core_gdsc disabled 
+npu_core_gdsc disabled 
+mvs0_gdsc disabled 
+mvs0c_gdsc disabled 
+mvs1_gdsc disabled 
+mvs1c_gdsc disabled 
+hsphy@88e3000 enabled 
+vdd_hap_boost disabled 
+pm8150_s5 enabled 1824000
+vdd_boost_vreg enabled 
+smb5-vbus disabled 
+smb5-vconn disabled 
+pm8008-chip-en disabled 
+pm8008_l1 disabled 1056000
+pm8008_l2 disabled 1104000
+pm8008_l3 disabled 2704000
+pm8008_l4 disabled 2800000
+pm8008_l5 disabled 2800000
+pm8008_l6 disabled 1800000
+pm8150_s6 enabled 600000
+pm8008_l7 disabled 2800000
+
+## full getprop (ro.*)
+
+[ro.actionable_compatible_property.enabled]: [true]
+[ro.adb.secure]: [1]
+[ro.allow.mock.location]: [0]
+[ro.apex.updatable]: [true]
+[ro.apk_verity.mode]: [2]
+[ro.appcompat_override.ro.boot.verifiedbootstate]: [green]
+[ro.atrace.core.services]: [com.google.android.gms,com.google.android.gms.ui,com.google.android.gms.persistent]
+[ro.audio.headtracking_enabled]: [true]
+[ro.audio.monitorRotation]: [true]
+[ro.audio.resampler.psd.cutoff_percent]: [98]
+[ro.audio.resampler.psd.halflength]: [960]
+[ro.audio.resampler.psd.stopband]: [132]
+[ro.audio.resampler.psd.tbwcheat]: [0]
+[ro.audio.spatializer_enabled]: [true]
+[ro.audio.spatializer_transaural_enabled_default]: [false]
+[ro.audio.usb.period_us]: [20375]
+[ro.baseband]: [mdm]
+[ro.bionic.2nd_arch]: [arm]
+[ro.bionic.2nd_cpu_variant]: [cortex-a76]
+[ro.bionic.arch]: [arm64]
+[ro.bionic.cpu_variant]: [cortex-a76]
+[ro.bluetooth.a2dp_offload.supported]: [true]
+[ro.board.api_frozen]: [true]
+[ro.board.api_level]: [202504]
+[ro.board.platform]: [kona]
+[ro.boot.avb_version]: [1.2]
+[ro.boot.baseband]: [mdm]
+[ro.boot.boot_devices]: [soc/1d84000.ufshc]
+[ro.boot.bootdevice]: [1d84000.ufshc]
+[ro.boot.bootreason]: [shutdown,userrequested]
+[ro.boot.cert]: [M2012K11AC]
+[ro.boot.console]: [ttyMSM0]
+[ro.boot.cpuid]: [<cpuid redacted>]
+[ro.boot.dp]: [0x0]
+[ro.boot.dtb_idx]: [0]
+[ro.boot.dtbo_idx]: [0]
+[ro.boot.dynamic_partitions]: [true]
+[ro.boot.flash.locked]: [1]
+[ro.boot.force_normal_boot]: [1]
+[ro.boot.fstab_suffix]: [qcom]
+[ro.boot.hardware]: [qcom]
+[ro.boot.hardware.cpu.pagesize]: [4096]
+[ro.boot.hardware.revision]: [CN_MP_9.9.0]
+[ro.boot.hardware.sku]: []
+[ro.boot.hwc]: [CN]
+[ro.boot.hwlevel]: [MP]
+[ro.boot.hwversion]: [9.9.0]
+[ro.boot.init_fatal_reboot_target]: [recovery]
+[ro.boot.keymaster]: [1]
+[ro.boot.memcg]: [1]
+[ro.boot.oled_wp]: [<oled_wp redacted>]
+[ro.boot.product.hardware.sku]: [nfc]
+[ro.boot.ramdump]: [disable]
+[ro.boot.secureboot]: [1]
+[ro.boot.serialno]: [<redacted>]
+[ro.boot.slot_suffix]: [_b]
+[ro.boot.usbcontroller]: [a600000.dwc3]
+[ro.boot.vbmeta.avb_version]: [1.0]
+[ro.boot.vbmeta.device_state]: [locked]
+[ro.boot.vbmeta.digest]: [7513d89b1a6a839b674fc4e7899e4d330e24c9bdadfdaf04d5292759e1285671]
+[ro.boot.vbmeta.hash_alg]: [sha256]
+[ro.boot.vbmeta.invalidate_on_error]: [yes]
+[ro.boot.vbmeta.size]: [4096]
+[ro.boot.vendor.overlay.theme]: [com.android.internal.systemui.navbar.gestural;com.google.android.systemui.gxoverlay_gms]
+[ro.boot.verifiedbootstate]: [green]
+[ro.boot.veritymode]: [enforcing]
+[ro.boot.warranty_bit]: [0]
+[ro.bootimage.build.date]: [Sat May  2 08:31:22 BST 2026]
+[ro.bootimage.build.date.utc]: [1777707082]
+[ro.bootimage.build.fingerprint]: [POCO/twrp_alioth/alioth:99.87.36/SP2A.220405.004/darth905020831:eng/test-keys]
+[ro.bootimage.build.id]: [SP2A.220405.004]
+[ro.bootimage.build.tags]: [test-keys]
+[ro.bootimage.build.type]: [user]
+[ro.bootimage.build.version.incremental]: [eng.darth9.20260501.110324]
+[ro.bootimage.build.version.release]: [99.87.36]
+[ro.bootimage.build.version.release_or_codename]: [99.87.36]
+[ro.bootimage.build.version.sdk]: [32]
+[ro.bootloader]: [unknown]
+[ro.bootmode]: [unknown]
+[ro.boottime.adbd]: [10695082807]
+[ro.boottime.apexd]: [6814715517]
+[ro.boottime.apexd-bootstrap]: [5117425622]
+[ro.boottime.apexd-snapshotde]: [7752639631]
+[ro.boottime.art_boot]: [7339738590]
+[ro.boottime.audioserver]: [9792174630]
+[ro.boottime.batterysecret]: [21387154365]
+[ro.boottime.bootanim]: [12646431973]
+[ro.boottime.boringssl_self_test32]: [6190287757]
+[ro.boottime.boringssl_self_test32_vendor]: [5660527445]
+[ro.boottime.boringssl_self_test64]: [6203642392]
+[ro.boottime.boringssl_self_test64_vendor]: [5712861194]
+[ro.boottime.boringssl_self_test_apex32]: [10044503901]
+[ro.boottime.boringssl_self_test_apex64]: [10166495776]
+[ro.boottime.bpfloader]: [8105600725]
+[ro.boottime.cameraserver]: [10512129473]
+[ro.boottime.cnss-daemon]: [10594648223]
+[ro.boottime.credstore]: [9798656817]
+[ro.boottime.dcvs-sh]: [21439998948]
+[ro.boottime.derive_classpath]: [7306767027]
+[ro.boottime.derive_sdk]: [7218269892]
+[ro.boottime.display-color-hal-1-0]: [9718183953]
+[ro.boottime.dms-hal-2-0]: [9719126036]
+[ro.boottime.dpmQmiMgr]: [10483501973]
+[ro.boottime.dpmd]: [10433580880]
+[ro.boottime.drm]: [10382998171]
+[ro.boottime.early_system_aconfigd_platform_init]: [5575611142]
+[ro.boottime.feature_enabler_client]: [10435784786]
+[ro.boottime.gatekeeper-1-0]: [6356617705]
+[ro.boottime.gatekeeperd]: [10623150932]
+[ro.boottime.gnss_service]: [9695334265]
+[ro.boottime.gpu]: [9806301870]
+[ro.boottime.hidl_memory]: [9687522182]
+[ro.boottime.hwservicemanager]: [6172223746]
+[ro.boottime.idmap2d]: [10513478067]
+[ro.boottime.incidentd]: [10514633067]
+[ro.boottime.init]: [4700951299]
+[ro.boottime.init.cold_boot_wait]: [413]
+[ro.boottime.init.first_stage]: [247011406]
+[ro.boottime.init.fsck.data]: [146]
+[ro.boottime.init.fsck.persist]: [77]
+[ro.boottime.init.mount.bt_firmware]: [0]
+[ro.boottime.init.mount.data]: [63]
+[ro.boottime.init.mount.dsp]: [1]
+[ro.boottime.init.mount.firmware_mnt]: [0]
+[ro.boottime.init.mount.persist]: [1]
+[ro.boottime.init.mount.spunvm]: [1]
+[ro.boottime.init.mount_all.early]: [84]
+[ro.boottime.init.mount_all.late]: [331]
+[ro.boottime.init.selinux]: [82919167]
+[ro.boottime.installd]: [10515866973]
+[ro.boottime.irsc_util]: [9774502651]
+[ro.boottime.keymaster-4-0]: [6209202392]
+[ro.boottime.keystore2]: [6354403955]
+[ro.boottime.lmkd]: [6169803798]
+[ro.boottime.loc_launcher]: [10608636296]
+[ro.boottime.logd]: [6168333382]
+[ro.boottime.logd-auditctl]: [21364794313]
+[ro.boottime.logd-reinit]: [6810537913]
+[ro.boottime.mainline_aconfigd_init]: [7122502288]
+[ro.boottime.mainline_aconfigd_socket_service]: [7215564996]
+[ro.boottime.media]: [10521259890]
+[ro.boottime.media.swcodec]: [10568890098]
+[ro.boottime.mediaextractor]: [10518841609]
+[ro.boottime.mediametrics]: [10520155307]
+[ro.boottime.mi_thermald]: [9972730463]
+[ro.boottime.misctrl]: [9813423172]
+[ro.boottime.mlid]: [10596740619]
+[ro.boottime.netd]: [8479895412]
+[ro.boottime.neuralnetworks_hal_service]: [9699248276]
+[ro.boottime.nqnfcinfo]: [10581622807]
+[ro.boottime.odsign]: [7378383381]
+[ro.boottime.prng_seeder]: [5658082965]
+[ro.boottime.qccvndhalservice]: [9728847807]
+[ro.boottime.qcom-c_main-sh]: [10506620828]
+[ro.boottime.qcom-post-boot]: [21331883167]
+[ro.boottime.qcom-sh]: [10617237286]
+[ro.boottime.qseecom-service]: [6211561767]
+[ro.boottime.qteeconnector-hal-1-0]: [9729654005]
+[ro.boottime.qti_esepowermanager_service_1_1]: [9968101192]
+[ro.boottime.secureelement-hal_1_2]: [9969293015]
+[ro.boottime.sensorscal-hal-1-0]: [9730522963]
+[ro.boottime.servicemanager]: [6170925309]
+[ro.boottime.soter-1-0]: [9731514422]
+[ro.boottime.statsd]: [10579785619]
+[ro.boottime.storaged]: [10522675307]
+[ro.boottime.surfaceflinger]: [10509253275]
+[ro.boottime.system_aconfigd_platform_init]: [6334131976]
+[ro.boottime.system_aconfigd_socket_service]: [7119677079]
+[ro.boottime.system_suspend]: [6353543382]
+[ro.boottime.time_daemon]: [8091234839]
+[ro.boottime.tombstoned]: [6748290934]
+[ro.boottime.touchfeature-hal-1-0]: [9750149578]
+[ro.boottime.traced]: [10428932546]
+[ro.boottime.traced_probes]: [10413933067]
+[ro.boottime.tui_comm-1-0]: [9732384526]
+[ro.boottime.ueventd]: [5111489372]
+[ro.boottime.update_engine]: [10633720828]
+[ro.boottime.usbd]: [10637437859]
+[ro.boottime.vendor-dolby-media-c2-hal-1-0]: [9720086192]
+[ro.boottime.vendor-qti-media-c2-hal-1-0]: [9733976817]
+[ro.boottime.vendor-sensor-sh]: [10641135359]
+[ro.boottime.vendor.adsprpcd]: [10565533171]
+[ro.boottime.vendor.adsprpcd_audiopd]: [10566612911]
+[ro.boottime.vendor.atfwd]: [10618895619]
+[ro.boottime.vendor.audio-hal]: [9679963120]
+[ro.boottime.vendor.bluetooth-1-0-qti]: [9688771036]
+[ro.boottime.vendor.boot-qti]: [6355575673]
+[ro.boottime.vendor.btmac-sh]: [13967126555]
+[ro.boottime.vendor.camera-provider-2-4]: [9690786817]
+[ro.boottime.vendor.capabilityconfigstore]: [9724150411]
+[ro.boottime.vendor.cas-hal-1-2]: [9691910203]
+[ro.boottime.vendor.cdsprpcd]: [10567704161]
+[ro.boottime.vendor.cnd]: [10535929786]
+[ro.boottime.vendor.dataadpl]: [10806393952]
+[ro.boottime.vendor.dataqti]: [10789368432]
+[ro.boottime.vendor.drm-clearkey-service]: [9693402130]
+[ro.boottime.vendor.drm-widevine-hal-1-3]: [9694359526]
+[ro.boottime.vendor.dspservice]: [9728022286]
+[ro.boottime.vendor.fingerprint-default]: [10638958067]
+[ro.boottime.vendor.health-default]: [9696435984]
+[ro.boottime.vendor.hvdcp_opti]: [10798818900]
+[ro.boottime.vendor.ims_rtp_daemon]: [10556252755]
+[ro.boottime.vendor.imsdatadaemon]: [10818111244]
+[ro.boottime.vendor.imsqmidaemon]: [10558411088]
+[ro.boottime.vendor.ipacm]: [8094157548]
+[ro.boottime.vendor.ir-hal-1-0]: [9697378172]
+[ro.boottime.vendor.light-default]: [9698307078]
+[ro.boottime.vendor.lineage_health]: [9721791609]
+[ro.boottime.vendor.lowi]: [9776031245]
+[ro.boottime.vendor.mdm_helper]: [9817479995]
+[ro.boottime.vendor.mdm_launcher]: [9785113328]
+[ro.boottime.vendor.media.omx]: [10525485359]
+[ro.boottime.vendor.misys]: [9736140151]
+[ro.boottime.vendor.misys@2.0]: [9737349265]
+[ro.boottime.vendor.misys@3.0]: [9739170724]
+[ro.boottime.vendor.misys@4.0]: [9747270463]
+[ro.boottime.vendor.mlipay-1-1]: [9748465880]
+[ro.boottime.vendor.msm_irqbalance]: [10703920515]
+[ro.boottime.vendor.netmgrd]: [10562885567]
+[ro.boottime.vendor.nfc_hal_service]: [9970246244]
+[ro.boottime.vendor.nv_mac]: [10620786505]
+[ro.boottime.vendor.pd_mapper]: [9777795724]
+[ro.boottime.vendor.per_mgr]: [9779454213]
+[ro.boottime.vendor.per_proxy]: [10042893901]
+[ro.boottime.vendor.port-bridge]: [10564316557]
+[ro.boottime.vendor.power-hal-aidl]: [6691923069]
+[ro.boottime.vendor.qcrild]: [10709808588]
+[ro.boottime.vendor.qcrild2]: [10738651452]
+[ro.boottime.vendor.qmipriod]: [10502471088]
+[ro.boottime.vendor.qrtr-ns]: [9771948953]
+[ro.boottime.vendor.qseecomd]: [6210519111]
+[ro.boottime.vendor.qti-chg-policy-sh]: [10011697442]
+[ro.boottime.vendor.qti.hardware.display.allocator]: [9725587495]
+[ro.boottime.vendor.qti.hardware.display.composer]: [9727051609]
+[ro.boottime.vendor.qti.hardware.memtrack]: [9717158588]
+[ro.boottime.vendor.qti.vibrator]: [9733137286]
+[ro.boottime.vendor.rmt_storage]: [9814443640]
+[ro.boottime.vendor.sensors]: [6357488121]
+[ro.boottime.vendor.sensors-hal-1-0]: [9700536661]
+[ro.boottime.vendor.shsusrd]: [10504185098]
+[ro.boottime.vendor.ssgtzd]: [9674182026]
+[ro.boottime.vendor.tftp_server]: [9815547859]
+[ro.boottime.vendor.usb-hal]: [9701577390]
+[ro.boottime.vendor.usbgadget-hal]: [9704911557]
+[ro.boottime.vendor.vppservice]: [9752421192]
+[ro.boottime.vendor.wifi_hal_legacy]: [9716120515]
+[ro.boottime.vndservicemanager]: [6173226090]
+[ro.boottime.vold]: [6214672601]
+[ro.boottime.wificond]: [10524063119]
+[ro.boottime.wifidisplayhalservice]: [10549743432]
+[ro.boottime.wpa_supplicant]: [19079332960]
+[ro.boottime.zygote]: [8484928328]
+[ro.boottime.zygote_secondary]: [8488811818]
+[ro.bpf.kver_override]: [5.10.239]
+[ro.build.ab_update]: [true]
+[ro.build.backported_fixes.alias_bitset.long_list]: [18]
+[ro.build.characteristics]: [default]
+[ro.build.date]: [Thu May 21 17:26:46 UTC 2026]
+[ro.build.date.utc]: [1779384406]
+[ro.build.description]: [alioth-user 16 BP4A.251205.006 eng.androi release-keys]
+[ro.build.display.id]: [BP4A.251205.006 release-keys]
+[ro.build.fingerprint]: [POCO/alioth_global/alioth:13/TKQ1.221114.001/V816.0.3.0.TKHMIXM:user/release-keys]
+[ro.build.flavor]: [alioth-user]
+[ro.build.host]: [r-814502ce38d658bc-f1ug]
+[ro.build.id]: [BP4A.251205.006]
+[ro.build.keys]: [release-keys]
+[ro.build.product]: [alioth]
+[ro.build.tags]: [release-keys]
+[ro.build.type]: [user]
+[ro.build.user]: [android-build]
+[ro.build.version.all_codenames]: [REL]
+[ro.build.version.base_os]: []
+[ro.build.version.codename]: [REL]
+[ro.build.version.incremental]: [1779384406]
+[ro.build.version.known_codenames]: [Base,Base11,Cupcake,Donut,Eclair,Eclair01,EclairMr1,Froyo,Gingerbread,GingerbreadMr1,Honeycomb,HoneycombMr1,HoneycombMr2,IceCreamSandwich,IceCreamSandwichMr1,JellyBean,JellyBeanMr1,JellyBeanMr2,Kitkat,KitkatWatch,Lollipop,LollipopMr1,M,N,NMr1,O,OMr1,P,Q,R,S,Sv2,Tiramisu,UpsideDownCake,VanillaIceCream,Baklava]
+[ro.build.version.min_supported_target_sdk]: [28]
+[ro.build.version.preview_sdk]: [0]
+[ro.build.version.preview_sdk_fingerprint]: [REL]
+[ro.build.version.release]: [16]
+[ro.build.version.release_or_codename]: [16]
+[ro.build.version.release_or_preview_display]: [16]
+[ro.build.version.sdk]: [36]
+[ro.build.version.sdk_full]: [36.1]
+[ro.build.version.security_patch]: [2026-05-01]
+[ro.camera.notify_nfc]: [1]
+[ro.camerax.extensions.enabled]: [true]
+[ro.carrier]: [unknown]
+[ro.cold_boot_done]: [true]
+[ro.com.android.dataroaming]: [true]
+[ro.com.android.mobiledata]: [false]
+[ro.com.android.wifi-watchlist]: [GoogleGuest]
+[ro.com.google.clientidbase]: [android-xiaomi]
+[ro.com.google.ime.bs_theme]: [true]
+[ro.com.google.ime.system_lm_dir]: [/product/usr/share/ime/google/d3_lms]
+[ro.com.google.ime.theme_id]: [5]
+[ro.com.google.lens.oem_camera_package]: [com.android.camera]
+[ro.config.alarm_alert]: [Bright_morning.ogg]
+[ro.config.media_vol_default]: [8]
+[ro.config.media_vol_steps]: [25]
+[ro.config.notification_sound]: [Popcorn.ogg]
+[ro.config.ringtone]: [The_big_adventure.ogg]
+[ro.config.small_battery]: [true]
+[ro.config.vc_call_vol_steps]: [11]
+[ro.control_privapp_permissions]: [enforce]
+[ro.cp_system_other_odex]: [1]
+[ro.crypto.allow_encrypt_override]: [true]
+[ro.crypto.metadata.enabled]: [true]
+[ro.crypto.state]: [encrypted]
+[ro.crypto.type]: [file]
+[ro.crypto.volume.filenames_mode]: [aes-256-cts]
+[ro.custom.blur.enable]: [true]
+[ro.dalvik.vm.enable_uffd_gc]: [true]
+[ro.dalvik.vm.native.bridge]: [0]
+[ro.debuggable]: [0]
+[ro.error.receiver.system.apps]: [com.google.android.gms]
+[ro.face.sense_service]: [true]
+[ro.force.debuggable]: [0]
+[ro.fstype.data]: [f2fs]
+[ro.fuse.bpf.is_running]: [false]
+[ro.gsid.image_running]: [0]
+[ro.hardware]: [qcom]
+[ro.hardware.audio.primary]: [alioth]
+[ro.hardware.egl]: [adreno]
+[ro.hardware.keystore_desede]: [true]
+[ro.hardware.vulkan]: [adreno]
+[ro.hwui.use_vulkan]: []
+[ro.input.video_enabled]: [false]
+[ro.is_ever_orange]: [0]
+[ro.kernel.version]: [4.19]
+[ro.lineage.device]: [alioth]
+[ro.lineagelegal.url]: [https://lineageos.org/legal]
+[ro.llndk.api_level]: [202504]
+[ro.logd.size.stats]: [64K]
+[ro.lunaris.build.version]: [3.10]
+[ro.lunaris.device]: [alioth]
+[ro.lunaris.display.version]: [v3.10-20260521]
+[ro.lunaris.maintainer]: [Yaseakun]
+[ro.lunaris.package.type]: [GMS-Community]
+[ro.lunaris.version]: [16.0]
+[ro.media.xml_variant.codecs]: [_kona]
+[ro.media.xml_variant.codecs_performance]: [_kona]
+[ro.minui.pixel_format]: [RGBX_8888]
+[ro.misctrl.16kb_before]: [0]
+[ro.miui.notch]: [1]
+[ro.netflix.bsp_rev]: [Q8450-34634-1]
+[ro.odm.build.date]: [Thu May 21 17:26:46 UTC 2026]
+[ro.odm.build.date.utc]: [1779384406]
+[ro.odm.build.fingerprint]: [POCO/alioth_global/alioth:13/TKQ1.221114.001/V816.0.3.0.TKHMIXM:user/release-keys]
+[ro.odm.build.id]: [BP4A.251205.006]
+[ro.odm.build.media_performance_class]: [30]
+[ro.odm.build.tags]: [release-keys]
+[ro.odm.build.type]: [user]
+[ro.odm.build.version.incremental]: [1779384406]
+[ro.odm.build.version.release]: [16]
+[ro.odm.build.version.release_or_codename]: [16]
+[ro.odm.build.version.sdk]: [36]
+[ro.odm.build.version.sdk_full]: [36.1]
+[ro.odm.product.cpu.abilist]: [arm64-v8a,armeabi-v7a,armeabi]
+[ro.odm.product.cpu.abilist32]: [armeabi-v7a,armeabi]
+[ro.odm.product.cpu.abilist64]: [arm64-v8a]
+[ro.oem_unlock_supported]: [0]
+[ro.opa.eligible_device]: [true]
+[ro.opengles.version]: [196610]
+[ro.ota.allow_downgrade]: [true]
+[ro.persistent_properties.ready]: [true]
+[ro.postinstall.fstab.prefix]: [/system]
+[ro.product.ab_ota_partitions]: [boot,dtbo,odm,product,system,system_ext,vbmeta,vbmeta_system,vendor,vendor_boot]
+[ro.product.board]: [kona]
+[ro.product.bootimage.brand]: [POCO]
+[ro.product.bootimage.device]: [alioth]
+[ro.product.bootimage.manufacturer]: [Xiaomi]
+[ro.product.bootimage.model]: [POCO F3]
+[ro.product.bootimage.name]: [twrp_alioth]
+[ro.product.brand]: [Redmi]
+[ro.product.build.16k_page.enabled]: [false]
+[ro.product.build.date]: [Thu May 21 17:26:46 UTC 2026]
+[ro.product.build.date.utc]: [1779384406]
+[ro.product.build.fingerprint]: [POCO/alioth_global/alioth:13/TKQ1.221114.001/V816.0.3.0.TKHMIXM:user/release-keys]
+[ro.product.build.id]: [BP4A.251205.006]
+[ro.product.build.tags]: [release-keys]
+[ro.product.build.type]: [user]
+[ro.product.build.version.incremental]: [1779384406]
+[ro.product.build.version.release]: [16]
+[ro.product.build.version.release_or_codename]: [16]
+[ro.product.build.version.sdk]: [36]
+[ro.product.build.version.sdk_full]: [36.1]
+[ro.product.cpu.abi]: [arm64-v8a]
+[ro.product.cpu.abilist]: [arm64-v8a,armeabi-v7a,armeabi]
+[ro.product.cpu.abilist32]: [armeabi-v7a,armeabi]
+[ro.product.cpu.abilist64]: [arm64-v8a]
+[ro.product.cpu.pagesize.max]: [4096]
+[ro.product.device]: [alioth]
+[ro.product.first_api_level]: [30]
+[ro.product.locale]: [en-US]
+[ro.product.manufacturer]: [Xiaomi]
+[ro.product.marketname]: [Redmi K40]
+[ro.product.mod_device]: [alioth]
+[ro.product.model]: [M2012K11AC]
+[ro.product.name]: [alioth]
+[ro.product.odm.brand]: [Redmi]

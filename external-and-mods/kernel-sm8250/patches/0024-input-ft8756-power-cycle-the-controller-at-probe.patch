@@ -1,0 +1,95 @@
+From: SteamOS ARM alioth port
+Subject: [PATCH] input: ft8756: power-cycle the controller at probe
+
+This is the fix for the 0xEF reads, and it was found by asking the
+controller the same question from the vendor driver on the stock
+Android, where touch works. With root, through that driver's own
+sysfs:
+
+  Read A3: 56        <- exactly what this driver expects
+  Read 9F: 52
+  Read A6: 1D        <- application firmware v0x1d, running
+  IC ID:0x5652       <- fts_driver_info
+  of_node -> .../spi@990000/focaltech@0
+
+So it is the same part this driver was written for, and its firmware
+is in the chip. Everything earlier in this series that read 0xEF as
+"a part this driver does not know" or "no application firmware" was
+wrong about the chip, though the defects those patches fixed were
+real.
+
+What 0xEF means came out of reproducing it there. Writing 0x55 0xAA
+(the ROM bootloader entry the id check sends on a mismatch) and then
+resetting left the vendor driver reading 0xEF as well -- and then
+`cat fts_hw_reset`, which resets the line and waits for the chip,
+answered 0xEF however many times it ran. The chip came back to
+0x56/0x52 only when the vendor's suspend/resume path ran, which turns
+vdd and vddio off and then on again.
+
+The controller leaves ROM only on a power cycle. A reset does not
+take it out, and this driver only ever resets:
+regulator_bulk_enable() cannot power-cycle anything, because the
+rails are already up when we probe, so it takes a reference and the
+chip never sees a power-on.
+
+Both rails have exactly one consumer in the device tree -- this node,
+via vio-supply = <&vreg_l10c_3p0> and ibb-supply = <&vreg_l1c_1p8>,
+which are the vendor's vdd (pm8150a-l10, 3.0V) and vcc_i2c
+(pm8150a-l1, 1.8V) -- so dropping our reference really does drop
+them. The reset line is held low across the cycle, where it belongs:
+it was taken with GPIOD_OUT_LOW earlier in probe and nothing has
+released it yet.
+
+Also logs whether each rail was already on before probe. That one
+line is the measurement behind the paragraph above, and it is the
+first thing to read if this does not work.
+
+--- a/drivers/input/touchscreen/ft8756.c
++++ b/drivers/input/touchscreen/ft8756.c
+@@ -614,10 +614,46 @@
+ 		return dev_err_probe(dev, ret,
+ 					 "Cannot get supplies: %d\n", ret);
+ 
++	/*
++	 * Power-cycle, do not just enable.
++	 *
++	 * This controller leaves its ROM bootloader only on a power
++	 * cycle; a reset does not take it out. Measured on this phone
++	 * through the vendor driver's own sysfs: once the chip answered
++	 * 0xEF from every register, `cat fts_hw_reset` (which resets the
++	 * line and waits) kept answering 0xEF however many times it ran,
++	 * and the chip came back to its real id -- 0xA3 = 0x56,
++	 * 0x9F = 0x52, firmware 0x1d -- only when the vendor's
++	 * suspend/resume path ran, which turns vdd and vddio off and
++	 * then on again.
++	 *
++	 * regulator_bulk_enable() alone cannot do that here: the rails
++	 * are already up when we probe, so it only takes a reference and
++	 * the chip never sees a power-on. Both rails have exactly one
++	 * consumer in the device tree (this node), so dropping our
++	 * reference really does drop them.
++	 *
++	 * The reset line is still held low at this point -- it was taken
++	 * with GPIOD_OUT_LOW above and nothing has released it yet --
++	 * which is where it belongs across a power cycle.
++	 */
++	for (int i = 0; i < FT8756_NUM_SUPPLIES; i++)
++		dev_info(dev, "supply %s was %s before probe\n",
++			 ts->supplies[i].supply,
++			 regulator_is_enabled(ts->supplies[i].consumer) ?
++				 "on" : "off");
++
+ 	ret = regulator_bulk_enable(FT8756_NUM_SUPPLIES, ts->supplies);
+ 	if (ret)
+ 		return ret;
+ 
++	regulator_bulk_disable(FT8756_NUM_SUPPLIES, ts->supplies);
++	/* Long enough for the rails to actually fall. */
++	msleep(30);
++
++	ret = regulator_bulk_enable(FT8756_NUM_SUPPLIES, ts->supplies);
++	if (ret)
++		return ret;
+ 
+ 	/* Delay for regulators to stabilize */
+ 	usleep_range(10000, 11000);

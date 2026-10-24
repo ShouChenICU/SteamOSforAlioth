@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ShadowBlip/InputPlumber/main/rootfs/usr/share/inputplumber/schema/composite_device_v1.json
+# AYN Thor Lite (SM8250): same pad driver as the Retroid 865 models, plus the
+# AYN key as its own gpio-keys device (KEY_F24, like the AYN Thor).
+version: 1
+kind: CompositeDevice
+name: AYN Thor Lite
+
+matches:
+  - udev:
+      sys_path: /sys/firmware/devicetree/base
+      attributes:
+        - name: model
+          value: AYN Thor Lite
+
+single_source: false
+
+source_devices:
+  - group: gamepad
+    evdev:
+      phys_path: retroid-pocket-gamepad/input0
+      handler: event*
+    capability_map_id: retroid_865
+  - group: gamepad
+    evdev:
+      name: gpio-keys-ayn
+      # no phys_path: the gpio-keys driver names every instance "gpio-keys/input0",
+      # so the old "gpio-keys-ayn/input0" never matched and the key was never mapped
+      handler: event*
+    capability_map_id: retroid_865
+
+options:
+  auto_manage: true
+
+target_devices:
+  - deck-uhid
+  - keyboard

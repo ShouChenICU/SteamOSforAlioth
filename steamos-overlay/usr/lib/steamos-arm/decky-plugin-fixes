@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+"""Small fixes to Decky plugins from the store that break on the Steam client
+we ship, applied where they're installed (~/homebrew/plugins) and only while
+the broken code is still there: once a plugin ships its own fix, nothing
+matches and nothing changes. Decky is restarted when something was fixed,
+since it has already loaded the old code.
+
+- SteamGridDB 1.7.1: the Steam beta changed its footer button glyph, so the
+  plugin's lookup found nothing and its panel crashed on open. Upstream fixed
+  the lookup (SteamGridDB/decky-steamgriddb#175, not released yet); this is
+  the same check.
+
+It also installs the plugins the image bundles in /usr/share/steamos-arm/
+decky-plugins, which updates can't put in the home folder themselves
+(updaters before 1.4 only carry two plugin folders). Each bundled version
+is installed once: a plugin removed in Decky stays removed until a newer one
+comes with an update.
+"""
+import glob
+import json
+import os
+import shutil
+import subprocess
+
+PLUGINS = "/home/steamos/homebrew/plugins"
+BUNDLED = "/usr/share/steamos-arm/decky-plugins"
+STATE = "/var/lib/steamos-arm/bundled-plugins.json"
+
+FIXES = [
+    ("SteamGridDB footer glyph", "*/dist/index.js",
+     "const FooterGlyph = DFL.findModuleExport((e) => e?.toString && e.toString().includes('.Knockout') "
+     "&& e.toString().includes('.additionalClassName'));",
+     "const FooterGlyph = DFL.findModuleExport((e) => { if (typeof e !== 'function') return false; "
+     "const s = e.toString(); return s.includes('.additionalClassName') && (s.includes('.Knockout') || "
+     "(s.includes('bIsKnockout') && s.includes('#ControllerButton_A'))); });"),
+]
+
+
+def version(folder):
+    try:
+        with open(os.path.join(folder, "package.json"), encoding="utf-8") as fh:
+            return json.load(fh).get("version", "")
+    except (OSError, ValueError):
+        return ""
+
+
+def install_bundled():
+    try:
+        with open(STATE, encoding="utf-8") as fh:
+            done = json.load(fh)
+    except (OSError, ValueError):
+        done = {}
+    installed = []
+    for src in sorted(glob.glob(f"{BUNDLED}/*/")):
+        name = os.path.basename(src.rstrip("/"))
+        want = version(src)
+        dst = os.path.join(PLUGINS, name)
+        if done.get(name) == want:
+            continue
+        if not os.path.isdir(dst) or version(dst) != want:
+            tmp = dst + ".new"
+            shutil.rmtree(tmp, ignore_errors=True)
+            shutil.copytree(src, tmp, symlinks=True)
+            subprocess.run(["chown", "-R", "1000:1000", tmp], check=False)
+            shutil.rmtree(dst, ignore_errors=True)
+            os.replace(tmp, dst)
+            installed.append(f"{name} {want}")
+        done[name] = want
+    if done:
+        os.makedirs(os.path.dirname(STATE), exist_ok=True)
+        with open(STATE + ".tmp", "w", encoding="utf-8") as fh:
+            json.dump(done, fh)
+        os.replace(STATE + ".tmp", STATE)
+    return installed
+
+
+def main() -> int:
+    fixed = []
+    if os.path.isdir(PLUGINS):
+        fixed += [f"installed {p}" for p in install_bundled()]
+    for name, pattern, old, new in FIXES:
+        for path in glob.glob(f"{PLUGINS}/{pattern}"):
+            try:
+                with open(path, encoding="utf-8") as fh:
+                    text = fh.read()
+            except (OSError, UnicodeDecodeError):
+                continue
+            if old not in text:
+                continue
+            with open(path + ".fix", "w", encoding="utf-8") as fh:
+                fh.write(text.replace(old, new))
+            subprocess.run(["chown", "--reference", path, path + ".fix"], check=False)
+            subprocess.run(["chmod", "--reference", path, path + ".fix"], check=False)
+            os.replace(path + ".fix", path)
+            fixed.append(f"{name} ({path})")
+    for f in fixed:
+        print(f"decky-plugin-fixes: {f}")
+    if fixed:
+        # --no-block: this unit runs before Decky, so waiting for its restart
+        # here would wait on ourselves
+        subprocess.run(["systemctl", "--no-block", "try-restart", "plugin_loader.service"], check=False)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

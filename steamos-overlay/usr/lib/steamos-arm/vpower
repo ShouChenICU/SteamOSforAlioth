@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+"""Battery state for Steam in /run/vpower, where the Frame's own charger
+daemon (deckard-charger, masked here: it drives the Frame's charger IC) keeps
+it. Without these files Steam shows "?h ?m" while charging. Read straight from
+the battery's power_supply node every 5 s."""
+import glob
+import os
+import time
+
+OUT = "/run/vpower"
+
+
+def rd(path, default=""):
+    try:
+        with open(path) as fh:
+            return fh.read().strip()
+    # TypeError: the battery driver isn't up yet early in boot and the read
+    # comes back empty-handed; treat it like a missing file.
+    except (OSError, TypeError):
+        return default
+
+
+def num(path):
+    try:
+        return int(rd(path))
+    except ValueError:
+        return None
+
+
+def battery():
+    # Controllers and pens show up as batteries too (scope "Device") and some
+    # sort before the device's own: the Legion Y700 Gen 4 then showed a pad's
+    # charge in Game Mode. Take the system's battery.
+    for d in sorted(glob.glob("/sys/class/power_supply/*")):
+        if rd(f"{d}/type") == "Battery" and rd(f"{d}/present", "1") == "1" \
+                and rd(f"{d}/scope", "System") != "Device":
+            return d
+    return None
+
+
+def ac_online():
+    for d in glob.glob("/sys/class/power_supply/*"):
+        if rd(f"{d}/type") in ("Mains", "USB", "USB_PD", "USB_C") and rd(f"{d}/online") == "1":
+            return True
+    return False
+
+
+import math
+
+# Charging slows down near full: the charger holds the voltage at its top
+# and the current falls away (constant voltage). A plain "charge to go /
+# current" then sits still while the percentage climbs. So the current is
+# smoothed over about a minute, and the part above the knee is counted as an
+# exponential tail down to the charger's cut-off current.
+CV_KNEE = 0.80          # roughly where the constant-voltage phase starts
+TERM_C = 0.05           # cut-off current, as a fraction of capacity (C/20)
+SMOOTH = 5 / 60         # 5 s samples into a ~1 min average
+
+
+class Estimator:
+    def __init__(self):
+        self.status = None
+        self.cur = None
+
+    def current(self, status, cur):
+        if status != self.status or self.cur is None:
+            self.status, self.cur = status, cur
+        else:
+            self.cur += (cur - self.cur) * SMOOTH
+        return self.cur
+
+    def __call__(self, b, status):
+        """(secs to full, secs to empty), -1 when unknown."""
+        now, cap, cur = num(f"{b}/charge_now"), num(f"{b}/charge_full"), num(f"{b}/current_now")
+        if now is None or not cap or not cur:
+            return kernel_times(b, status)
+        cur = self.current(status, abs(cur))
+        if status == "Discharging":
+            return -1, int(now * 3600 / cur)
+        if status != "Charging":
+            return -1, -1
+        limit = num(f"{b}/charge_control_end_threshold") or 100
+        target = cap * min(100, max(1, limit)) / 100
+        if now >= target:
+            return 0, -1
+        knee = cap * CV_KNEE
+        hours = max(0, min(target, knee) - now) / cur                  # constant current
+        if target > knee:                                              # constant voltage tail
+            q = target - max(now, knee)
+            i_term = cap * TERM_C
+            hours += q / cur * max(1.0, math.log(max(cur, i_term) / i_term))
+        return int(round(hours * 3600 / 60) * 60), -1
+
+
+def kernel_times(b, status):
+    """The driver's own estimates, for batteries without charge counters."""
+    full = num(f"{b}/time_to_full_now") if status == "Charging" else None
+    empty = num(f"{b}/time_to_empty_now") if status == "Discharging" else None
+    return (full if full and full > 0 else -1), (empty if empty and empty > 0 else -1)
+
+
+def write(name, value):
+    tmp = f"{OUT}/.{name}"
+    with open(tmp, "w") as fh:
+        fh.write(f"{value}\n")
+    os.replace(tmp, f"{OUT}/{name}")
+
+
+def main():
+    os.makedirs(OUT, exist_ok=True)
+    last = None
+    estimates = Estimator()
+    while True:
+        b = battery()
+        if b:
+            status = rd(f"{b}/status", "Unknown")
+            pct = num(f"{b}/capacity")
+            full, empty = estimates(b, status)
+            vals = {
+                "ac_status": "Connected" if ac_online() else "Disconnected",
+                "battery_percent": f"{pct if pct is not None else 0:.2f}",
+                "battery_status": status,
+                "secs_until_battery_full": full,
+                "secs_until_shutdown_request": empty,
+            }
+            if vals != last:
+                for k, v in vals.items():
+                    write(k, v)
+                last = vals
+        time.sleep(5)
+
+
+if __name__ == "__main__":
+    main()

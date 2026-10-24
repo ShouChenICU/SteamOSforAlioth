@@ -1,0 +1,13 @@
+[Unit]
+Description=Name the handheld after its model
+After=systemd-hostnamed.socket local-fs.target
+Before=network-pre.target NetworkManager.service avahi-daemon.service
+Wants=network-pre.target
+ConditionPathExists=/sys/firmware/devicetree/base/model
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/steamos-arm/device-hostname
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,36 @@
+# Xiaomi alioth (Redmi K40 / POCO F3).
+#
+# The touchscreen is the primary pointer on this device -- there is no stick
+# to fall back on -- so tag it for libinput and seat0 explicitly rather than
+# relying on the generic rules matching an SPI-attached panel.
+#
+# The calibration matrix is what makes touch land where the picture is.
+# gamescope composites 2400x1080 onto a panel whose native mode is
+# 1080x2400, and --force-composition-rotation only says *where* the rotation
+# happens (compositor instead of scanout) -- it does not set an angle, so
+# gamescope never learns the panel's orientation and never transforms touch.
+# Measured on the device 2026-10-23: the picture was upright but touch was
+# 90 degrees counter-clockwise from it, so no button could be hit and every
+# tap or swipe read as a gesture ("it jumps back to the home page").
+# Normalised touch (nx, ny) has to become (ny, 1 - nx), which is the libinput
+# matrix below. Doing it here rather than with --force-orientation leaves the
+# picture alone; --force-orientation would rotate an output that is already
+# correct.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="Focaltech FT8756 Touchscreen", \
+  ENV{ID_INPUT}="1", ENV{ID_INPUT_TOUCHSCREEN}="1", TAG+="seat", TAG+="uaccess", \
+  ENV{LIBINPUT_CALIBRATION_MATRIX}="0 1 0 -1 0 1"
+
+# Power key. steamos-powerbuttond enumerates udev for input/event* and then
+# takes only the device carrying STEAMOS_POWER_BUTTON -- those three strings
+# ("event*", "input", "STEAMOS_POWER_BUTTON") are the whole of its matching
+# logic. Nothing in the generic or sm8250 rules sets it on a PMIC pwrkey, so
+# on alioth the daemon walked every event device and then **exited 0**: no
+# error, not one line in the journal, and a power button that neither blanked
+# the screen nor opened the power menu. Measured on the device 2026-10-23;
+# with the property set it logs
+#   Found power button device at /dev/input/event0
+# pm8941_pwrkey is the PMIC power key (pm8150 pon@800); pm8941_resin next to
+# it is volume-down, which InputPlumber claims instead -- matching on the
+# name keeps the two apart.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="pm8941_pwrkey", \
+  ENV{STEAMOS_POWER_BUTTON}="1"

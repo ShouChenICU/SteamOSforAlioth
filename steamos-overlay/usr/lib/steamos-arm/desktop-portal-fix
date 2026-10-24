@@ -1,0 +1,19 @@
+#!/bin/bash
+# Desktop Mode, once Plasma is up: the portal can start during the switch from
+# Game Mode, before the Desktop's environment exists. It then has no KDE back
+# end, and Xwayland's request for input (how Steam's right-stick mouse reaches
+# the real pointer) goes nowhere: no pointer and no prompt. Hand the session's
+# display variables to the user services and restart the portal if it came up
+# without them.
+set -u
+vars=()
+for v in WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE; do
+  [[ -n "${!v:-}" ]] && vars+=("$v")
+done
+((${#vars[@]})) && systemctl --user import-environment "${vars[@]}" 2>/dev/null
+((${#vars[@]})) && dbus-update-activation-environment "${vars[@]}" >/dev/null 2>&1
+pid="$(systemctl --user show -p MainPID --value xdg-desktop-portal.service 2>/dev/null)"
+if [[ "${pid:-0}" != 0 ]] && ! tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null | grep -qx 'XDG_CURRENT_DESKTOP=KDE'; then
+  systemctl --user restart xdg-desktop-portal.service
+fi
+exit 0

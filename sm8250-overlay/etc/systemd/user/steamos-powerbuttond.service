@@ -1,0 +1,12 @@
+# SM8250 handhelds: replaces the Frame's unit, which is Requisite=steamvr.service
+# (masked on this image), so the PMIC power key did nothing in Game Mode.
+# Started with Game Mode by gamescope-session.target.d/99-sm8250-powerbuttond.conf.
+[Unit]
+Description=Power Button daemon for SteamOS
+PartOf=gamescope-session.target
+After=gamescope-session.service
+
+[Service]
+ExecStart=/usr/lib/hwsupport/steamos-powerbuttond
+Restart=on-failure
+Slice=session.slice

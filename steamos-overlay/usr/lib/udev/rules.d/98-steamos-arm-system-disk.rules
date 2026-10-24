@@ -1,0 +1,19 @@
+# Keep the drives Steam must never touch out of its storage settings.
+#
+# The disk this system runs from (the microSD card, or a USB drive on the
+# Lenovo tablets): SteamOS's automount (99-steamos-automount.rules) takes any
+# mmcblk filesystem for a game card and Steam then offers to format it.
+# ID_FS_USAGE "system" makes that rule skip it.
+SUBSYSTEM!="block", GOTO="steamos_arm_system_disk_end"
+ACTION=="remove", GOTO="steamos_arm_system_disk_end"
+KERNEL=="mmcblk[0-9]*|sd[a-z]*", PROGRAM="/usr/lib/steamos-arm/is-system-disk %k", \
+  ENV{UDISKS_IGNORE}="1", ENV{ID_FS_USAGE}="system"
+# A card that still holds one of our SD images after SteamOS moved to internal
+# storage: not a game drive until Steam formats it (no automount of its root
+# and home, so Settings > Storage offers to format it).
+KERNEL=="mmcblk[0-9]*p[0-9]*", ENV{ID_FS_USAGE}=="filesystem", \
+  PROGRAM="/usr/lib/steamos-arm/is-old-system-card %k", ENV{ID_FS_USAGE}="old-system"
+# Internal UFS: Android's partitions and an internal install's, which mounts
+# through fstab.
+KERNEL=="sd[a-z]*", DEVPATH=="*.ufshc/*", ENV{UDISKS_IGNORE}="1"
+LABEL="steamos_arm_system_disk_end"

@@ -1,0 +1,14 @@
+[Unit]
+Description=Fixes for Decky store plugins that break on this Steam client
+Before=plugin_loader.service
+# Decky's boot sync writes several plugin folders in a row, and each change
+# starts this (a quick, idempotent pass): the default 5 starts in 10 s
+# failed the watcher for the whole boot, so later plugins went unfixed.
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/steamos-arm/decky-plugin-fixes
+
+[Install]
+WantedBy=multi-user.target

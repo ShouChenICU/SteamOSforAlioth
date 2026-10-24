@@ -1,0 +1,24 @@
+#!/bin/sh
+# After each sleep, log how much of it the SoC spent in its low-power states
+# (Qualcomm's qcom_stats: CX collapse, DDR, AOSS) and what woke it, so a
+# battery-drain report comes with its own evidence (journalctl -t sleep-stats).
+S=/sys/kernel/debug/qcom_stats; T=/run/steamos-arm-sleep-stats
+[ -d $S ] || mount -t debugfs none /sys/kernel/debug 2>/dev/null
+[ -d $S ] || exit 0
+snap() { for f in $S/*; do [ -f "$f" ] || continue
+  printf '%s %s %s\n' "${f##*/}" "$(sed -n 's/^Count: *//p' "$f")" "$(sed -n 's/^Accumulated Duration: *//p' "$f")"; done; }
+case "$1" in
+  pre) snap >$T; date +%s >$T.t ;;
+  post)
+    [ -f $T ] || exit 0
+    slept=$(( $(date +%s) - $(cat $T.t) ))
+    # Durations are 19.2 MHz ticks.
+    msg=$(snap | while read -r n c d; do
+      set -- $(grep "^$n " $T); [ -n "${2:-}" ] && [ -n "$c" ] || continue
+      printf '%s +%s (%ss) ' "$n" $((c - $2)) $(( (d - $3) / 19200000 ))
+    done)
+    irq=$(cat /sys/power/pm_wakeup_irq 2>/dev/null)
+    [ -n "$irq" ] && irq="$irq $(awk -v i="$irq:" '$1 == i {print $NF}' /proc/interrupts)"
+    logger -t sleep-stats "slept ${slept}s: ${msg}woken by irq ${irq:-?}" ;;
+esac
+exit 0

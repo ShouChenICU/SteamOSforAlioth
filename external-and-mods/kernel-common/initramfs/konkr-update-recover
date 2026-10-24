@@ -1,0 +1,39 @@
+#!/bin/busybox sh
+# Called by /init before switch_root, with the root and boot mounted.
+# Runtime and rollback data live on the separate HOME filesystem.
+grep -q " /boot " /proc/mounts || exit 1
+pending=/newroot/var/lib/konkr-update/pending
+[ -f "$pending" ] || exit 0
+[ "$(stat -c %u "$pending")" = 0 ] || exit 1
+id=$(cat "$pending")
+case "$id" in *[!0-9a-f-]*|"") exit 1 ;; esac
+[ "${#id}" = 36 ] || exit 1
+mkdir -p /updatehome
+case "$rootarg" in
+  PARTLABEL=*) homedev=$(by_partlabel HOME) ;;
+  *) homedev="${bootdev%p1}p3" ;;
+esac
+[ -n "$homedev" ] && mount -t ext4 -o rw "$homedev" /updatehome || exit 1
+work=/updatehome/.konkr-updates/$id
+rec=$work/recovery
+[ "$(stat -c %u /updatehome/.konkr-updates)" = 0 ] || exit 1
+[ "$(stat -c %a /updatehome/.konkr-updates)" = 700 ] || exit 1
+[ "$(stat -c %u "$rec")" = 0 ] || exit 1
+mount --bind /newroot "$rec/target" || exit 1
+mount --bind /boot "$rec/boot-target" || exit 1
+mount --bind /updatehome "$rec/home-target" || exit 1
+mount --bind "$work" "$rec/transaction" || exit 1
+mount --bind /dev "$rec/dev" || exit 1
+mount --bind /proc "$rec/proc" || exit 1
+chroot "$rec" /usr/bin/python3 /updater.py recover \
+  --root /target --boot /boot-target --home /home-target --work /transaction \
+  >>"$work/recovery.log" 2>&1
+rc=$?
+sync
+for d in proc dev transaction home-target boot-target target; do umount "$rec/$d" || exit 1; done
+umount /updatehome || exit 1
+case "$rc" in
+  0) exit 0 ;;
+  10) reboot -f; exit 1 ;;
+  *) echo "Update recovery failed: see HOME/.konkr-updates/$id/recovery.log"; exit 1 ;;
+esac

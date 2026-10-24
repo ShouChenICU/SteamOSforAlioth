@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch Decky's plugins for ones that need a fix
+
+[Path]
+# Decky unpacks a plugin into its own folder: the folder list changes.
+PathChanged=/home/steamos/homebrew/plugins
+Unit=steamos-arm-decky-plugin-fixes.service
+
+[Install]
+WantedBy=multi-user.target

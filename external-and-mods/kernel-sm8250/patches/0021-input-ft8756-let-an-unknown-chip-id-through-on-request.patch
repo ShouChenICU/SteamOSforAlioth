@@ -1,0 +1,60 @@
+From: SteamOS ARM alioth port
+Subject: [PATCH] input: ft8756: let an unknown chip id through on request
+
+The touch controller in this Redmi K40 answers the FocalTech SPI
+protocol correctly -- the frames are framed where the driver expects
+them, and the CRC16 the chip computes over its own reply (poly 0x8408)
+matches the one the driver computes -- but it reports 0xef from
+registers 0xA3 and 0x9F, and a boot id of 0x56b2 instead of 0x8756:
+
+  read reg 0xa3 val_size 1 txlen 10 dp 7
+  ft8756 rx: 02 02 02 02 02 02 02 ef 7e 10
+  read reg 0x90 val_size 2 txlen 11 dp 7
+  ft8756 rx: 02 02 02 02 02 02 02 56 b2 06 e1
+
+alioth shipped with more than one touch supplier, so the reference
+device this driver was written against is probably not the same part.
+FocalTech parts share the point report format, so the rest of the
+driver may still fit this one.
+
+ft8756.ignore_id=1 is how to find out. Off by default: continuing past
+an id the driver does not recognise means reading a register map that
+may not be there.
+
+--- a/drivers/input/touchscreen/ft8756.c
++++ b/drivers/input/touchscreen/ft8756.c
+@@ -72,6 +72,20 @@
+ module_param_named(debug, ft8756_debug_frames, bool, 0644);
+ MODULE_PARM_DESC(debug, "dump raw SPI frames");
+ 
++/*
++ * ft8756.ignore_id=1: carry on when the chip answers with an id this
++ * driver does not know. The controller in this Redmi K40 answers the
++ * protocol correctly -- the frames are framed right and the CRC the
++ * chip computes over its own reply matches ours -- but reports 0xef
++ * from registers 0xA3 and 0x9F and a boot id of 0x56b2 rather than
++ * 0x8756. FocalTech parts share the point report format, so the rest
++ * of the driver may still fit. Off by default: a wrong guess here
++ * reads a foreign register map.
++ */
++static bool ft8756_ignore_id;
++module_param_named(ignore_id, ft8756_ignore_id, bool, 0644);
++MODULE_PARM_DESC(ignore_id, "probe even when the chip id is unknown");
++
+ struct ft8756_abs_object {
+ 	u16 x;
+ 	u16 y;
+@@ -539,8 +553,11 @@
+ 
+ skip_regulators:
+ 	ret = ft8756_check_chip_id(ts);
+-	if (ret)
+-		return ret;
++	if (ret) {
++		if (!ft8756_ignore_id)
++			return ret;
++		dev_warn(dev, "unknown chip id, continuing (ft8756.ignore_id=1)\n");
++	}
+ 
+ 	ret = ft8756_input_dev_config(ts);
+ 	if (ret) {

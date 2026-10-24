@@ -1,0 +1,263 @@
+#!/usr/bin/env python3
+"""把当前活动的 boot_X 槽标记为 successful（等价 `qbootctl -u`）。
+
+用法: alioth-mark-slot-successful [--device /dev/sde] [--slot _a] [--dry-run]
+
+为什么要有这个脚本 —— Valve 的 rootfs 里**没有** qbootctl（真机实测
+`command not found`），而不标记的后果不是「少了个标记」：
+
+alioth 的 A/B 槽状态不在 misc 分区里（那里实测全是 0），而在 GPT 表项
+attributes 的高 16 位 —— Qualcomm 的 ABL 就是这么存的，qbootctl 也是这么改的：
+
+    bit 48-49  priority        bit 50     active
+    bit 51-53  tries remaining bit 54     successful
+    bit 55     unbootable
+
+ABL 每次引导一个 successful=0 的槽，就把它的 tries remaining 减 1；减到 0 就
+把它标成 unbootable 并换槽。真机实测 boot_a 已经从 7 掉到 6（attr
+0x0037…），而 abl_a / vbmeta_a 是 success=1 retry=7 —— 也就是说这个机制在
+alioth 上确实在跑。两个槽刷同一个 boot.img 也救不了：十几次开机之后两个槽
+都会被标成 unbootable，然后 bootloader 谁都不引导。
+
+写分区表的风险和它的缓解
+------------------------
+这块 LUN 上同时住着 abl_a —— 写坏 GPT，XBL 就找不到 ABL，那就只能走
+EDL 9008。所以：
+
+  1. 下笔前先自检：用我们自己的算法重算**未修改**的 header CRC 与 entries
+     CRC，和表里存着的值比。算得出来，才证明对这张表的布局理解是对的。
+     四个 CRC（主份 + 备份，各两个）有任何一个对不上就拒绝下笔。
+     真机实测四个全部对得上。
+  2. 每一份 GPT 只做**一次** pwrite。4096 字节扇区下 header 在 LBA 1、
+     entries 从 LBA 2 开始，两者相邻，所以能用一块连续缓冲一次写完 ——
+     不存在「表项改了、header 的 CRC 还没改」的中间状态。
+  3. 先写主份再写备份。万一在两次 pwrite 之间断电，主份是新的且自洽，
+     备份是旧的且自洽，XBL 读主份，照样能起。
+  4. 只改一个表项里 attributes 那 8 个字节，别的一个字节都不动。
+  5. 槽已经是 successful 就什么都不写（幂等）；槽已经被标成 unbootable
+     就拒绝 —— 那说明 bootloader 已经判它死刑，改回 successful 是在掩盖
+     一个真实故障。
+
+scripts/assert-alioth-markslot.py 对一份合造的 GPT 跑完上面每一条，包括
+「该拒绝的时候真的拒绝了，而且一个字节都没写」—— 那件事在真机上没法安全地试。
+"""
+import argparse, os, struct, sys, zlib
+
+PRIO_BIT, ACTIVE_BIT, RETRY_BIT, SUCCESS_BIT, UNBOOT_BIT = 48, 50, 51, 54, 55
+RETRY_MAX = 7
+ATTR_OFF = 48            # 表项里 attributes 的偏移
+NAME_OFF = 56
+
+def log(*a): print("alioth-mark-slot:", *a, file=sys.stderr)
+
+
+class Gpt:
+    """一份 GPT（主或备）。只在构造时读，写由 write() 一次完成。"""
+
+    def __init__(self, fd, ss, hdr_lba):
+        self.fd, self.ss, self.hdr_lba = fd, ss, hdr_lba
+        h = os.pread(fd, 512, hdr_lba * ss)
+        if h[:8] != b"EFI PART":
+            raise ValueError(f"LBA {hdr_lba} 上没有 'EFI PART'")
+        self.hsz, = struct.unpack_from("<I", h, 12)
+        if not 92 <= self.hsz <= 512:
+            raise ValueError(f"header size {self.hsz} 不合理")
+        self.hdr = bytearray(h[:self.hsz])
+        self.stored_hcrc, = struct.unpack_from("<I", self.hdr, 16)
+        self.elba, self.n, self.esz = struct.unpack_from("<QII", self.hdr, 72)
+        self.stored_ecrc, = struct.unpack_from("<I", self.hdr, 88)
+        if self.esz < 128 or self.n == 0 or self.n > 4096:
+            raise ValueError(f"表项 n={self.n} esz={self.esz} 不合理")
+        self.ents = bytearray(os.pread(fd, self.n * self.esz, self.elba * ss))
+
+    # --- 自检 ---
+    def hcrc(self):
+        m = bytearray(self.hdr)
+        m[16:20] = b"\0\0\0\0"
+        return zlib.crc32(bytes(m)) & 0xffffffff
+
+    def ecrc(self):
+        return zlib.crc32(bytes(self.ents)) & 0xffffffff
+
+    def verify(self):
+        bad = []
+        if self.hcrc() != self.stored_hcrc:
+            bad.append(f"header CRC {self.hcrc():08x} != {self.stored_hcrc:08x}")
+        if self.ecrc() != self.stored_ecrc:
+            bad.append(f"entries CRC {self.ecrc():08x} != {self.stored_ecrc:08x}")
+        return bad
+
+    # --- 表项 ---
+    def names(self):
+        out = {}
+        for i in range(self.n):
+            r = self.ents[i * self.esz:(i + 1) * self.esz]
+            if r[:16] == b"\0" * 16:
+                continue
+            name = r[NAME_OFF:NAME_OFF + 72].decode("utf-16-le", "replace").split("\0")[0]
+            out[name] = i
+        return out
+
+    def attr(self, i):
+        return struct.unpack_from("<Q", self.ents, i * self.esz + ATTR_OFF)[0]
+
+    def set_attr(self, i, a):
+        struct.pack_into("<Q", self.ents, i * self.esz + ATTR_OFF, a)
+
+    # --- 写 ---
+    def write(self):
+        """一次 pwrite 写完 header + entries。要求两者在设备上相邻。"""
+        struct.pack_into("<I", self.hdr, 88, self.ecrc())
+        struct.pack_into("<I", self.hdr, 16, 0)
+        struct.pack_into("<I", self.hdr, 16, self.hcrc())
+
+        lo = min(self.hdr_lba, self.elba)
+        ent_sectors = (self.n * self.esz + self.ss - 1) // self.ss
+        hi = max(self.hdr_lba + 1, self.elba + ent_sectors)
+        buf = bytearray(os.pread(self.fd, (hi - lo) * self.ss, lo * self.ss))
+        o = (self.hdr_lba - lo) * self.ss
+        buf[o:o + self.hsz] = self.hdr
+        o = (self.elba - lo) * self.ss
+        buf[o:o + len(self.ents)] = self.ents
+        os.pwrite(self.fd, bytes(buf), lo * self.ss)
+        os.fsync(self.fd)
+
+
+def find_device():
+    """找到带 boot_a 表项的那块盘。alioth 上 boot_a 在 sde，不是 sda。"""
+    for d in sorted(os.listdir("/sys/block")):
+        if not d.startswith(("sd", "nvme", "mmcblk")):
+            continue
+        p = f"/dev/{d}"
+        try:
+            fd = os.open(p, os.O_RDONLY)
+        except OSError:
+            continue
+        try:
+            for ss in (4096, 512):
+                g = None
+                try:
+                    g = Gpt(fd, ss, 1)
+                except ValueError:
+                    continue
+                if any(k.startswith("boot_") for k in g.names()):
+                    return p
+        finally:
+            os.close(fd)
+    return None
+
+
+def main():
+    ap = argparse.ArgumentParser(add_help=True)
+    ap.add_argument("--device")
+    ap.add_argument("--slot", help="例如 _a；默认用 GPT 里 active=1 的那个")
+    ap.add_argument("--dry-run", action="store_true")
+    # 把活动槽的后缀印到 stdout 就退出，什么都不改。
+    # alioth-write-boot 用它决定写哪个槽 —— 与其在那边再抄一遍 GPT 解析，
+    # 不如让已经解析对了的这一份把答案说出来。
+    ap.add_argument("--print-active", action="store_true")
+    args = ap.parse_args()
+
+    dev = args.device or find_device()
+    if not dev:
+        log("找不到带 boot_* 表项的块设备")
+        return 1
+
+    ro = args.dry_run or args.print_active
+    fd = os.open(dev, os.O_RDONLY if ro else os.O_RDWR)
+    try:
+        # 扇区大小：先 4096（UFS），再 512。认错扇区大小会让所有偏移都错位，
+        # 而那种错位在 header magic 这一步就会被挡住。
+        pri = None
+        for ss in (4096, 512):
+            try:
+                pri = Gpt(fd, ss, 1)
+                break
+            except ValueError as e:
+                last = e
+        if pri is None:
+            log(f"{dev}: 读不出主 GPT: {last}")
+            return 1
+        ss = pri.ss
+
+        bad = pri.verify()
+        if bad:
+            log(f"{dev} 主 GPT 自检失败，拒绝下笔: {'; '.join(bad)}")
+            return 1
+
+        bak_lba, = struct.unpack_from("<Q", pri.hdr, 32)
+        try:
+            bak = Gpt(fd, ss, bak_lba)
+        except ValueError as e:
+            log(f"{dev} 读不出备份 GPT（LBA {bak_lba}），拒绝下笔: {e}")
+            return 1
+        bad = bak.verify()
+        if bad:
+            log(f"{dev} 备份 GPT 自检失败，拒绝下笔: {'; '.join(bad)}")
+            return 1
+        log(f"{dev}: 扇区 {ss}，{pri.n} 个表项，主/备 GPT 四个 CRC 全部自洽")
+
+        names = pri.names()
+        boots = {k: i for k, i in names.items() if k.startswith("boot_")}
+        if not boots:
+            log(f"{dev} 上没有 boot_* 表项")
+            return 1
+
+        if args.print_active:
+            act = [k for k, i in boots.items() if (pri.attr(i) >> ACTIVE_BIT) & 1]
+            if len(act) != 1:
+                log(f"活动的 boot_* 槽不是恰好一个（{act or '一个都没有'}）")
+                return 1
+            print(act[0].removeprefix("boot"))      # _a / _b
+            return 0
+
+        if args.slot:
+            name = "boot" + args.slot
+            if name not in boots:
+                log(f"没有 {name}（有: {' '.join(sorted(boots))}）")
+                return 1
+        else:
+            active = [k for k, i in boots.items() if (pri.attr(i) >> ACTIVE_BIT) & 1]
+            if len(active) != 1:
+                log(f"活动的 boot_* 槽不是恰好一个（{active or '一个都没有'}）—— "
+                    f"拒绝瞎猜。要指定就用 --slot _a。")
+                return 1
+            name = active[0]
+        i = boots[name]
+        a = pri.attr(i)
+
+        if (a >> UNBOOT_BIT) & 1:
+            log(f"{name} 已被标成 unbootable —— bootloader 判它死刑了。"
+                f"把它改回 successful 是在掩盖一个真实故障，拒绝。")
+            return 1
+
+        retry = (a >> RETRY_BIT) & 7
+        if (a >> SUCCESS_BIT) & 1 and retry == RETRY_MAX:
+            log(f"{name} 已经是 successful（retry={retry}），什么都不做")
+            return 0
+
+        new = a | (1 << SUCCESS_BIT)
+        new = (new & ~(7 << RETRY_BIT)) | (RETRY_MAX << RETRY_BIT)
+        log(f"{name}: attr 0x{a:016x} -> 0x{new:016x}"
+            f"（success 0->1，retry {retry}->{RETRY_MAX}）")
+        if args.dry_run:
+            log("--dry-run，一个字节都不写")
+            return 0
+
+        # 顺序是要点：先主份后备份。断电落在两次 pwrite 之间时，主份是新的
+        # 且自洽、备份是旧的且自洽，XBL 读主份。
+        for g in (pri, bak):
+            j = g.names().get(name)
+            if j is None:
+                log(f"备份 GPT 里没有 {name}，拒绝只改一半")
+                return 1
+            g.set_attr(j, new)
+            g.write()
+        log("已写入主 GPT 与备份 GPT")
+    finally:
+        os.close(fd)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

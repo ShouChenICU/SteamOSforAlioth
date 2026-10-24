@@ -1,0 +1,43 @@
+#!/bin/bash
+# Lenovo Legion Y700 Gen 4, SteamOS on a microSD card started from boot_b
+# with ZUXOS left on slot A: switch the slot the bootloader starts.
+#
+#   tablet-slot android   start ZUXOS (slot A) from the next boot on, and restart
+#   tablet-slot status    which slot is active, and whether this is a dual boot
+#
+# The stock Qualcomm bootloader keeps the slot state in the GPT attributes of
+# boot_a / boot_b: bit 50 active, 51-53 retries, 54 successful, 55 unbootable.
+# Back to SteamOS from ZUXOS: fastboot set_active b.
+set -euo pipefail
+part() { readlink -f "/dev/disk/by-partlabel/boot_$1"; }
+bits() {  # bits <slot>: the attribute bits of boot_<slot>, space separated
+  local p; p=$(part "$1"); local disk=/dev/$(lsblk -no PKNAME "$p") num; num=$(cat "/sys/class/block/${p##*/}/partition")
+  sfdisk --part-attrs "$disk" "$num" | sed -n 's/.*GUID:\([0-9,]*\).*/\1/p' | tr ',' ' '
+}
+setbits() {  # setbits <slot> <bits...>
+  local s=$1; shift
+  local p; p=$(part "$s"); local disk=/dev/$(lsblk -no PKNAME "$p") num; num=$(cat "/sys/class/block/${p##*/}/partition")
+  local other; other=$(sfdisk --part-attrs "$disk" "$num" | sed 's/GUID:[0-9,]*//; s/^ *//; s/ *$//')
+  local list; list=$(printf '%s\n' "$@" | sort -nu | tr '\n' ',' | sed 's/,$//')
+  sfdisk --part-attrs "$disk" "$num" "${other:+$other }${list:+GUID:$list}" >/dev/null
+}
+sd_boot() { findmnt -no SOURCE / | grep -q mmcblk; }
+case "${1:-status}" in
+  status)
+    for s in a b; do echo "boot_$s: $(bits $s)"; done
+    sd_boot && echo "running from the microSD card (dual boot)" || echo "running from internal storage"
+    ;;
+  android)
+    sd_boot || { echo "SteamOS isn't on the microSD card here: ZUXOS is gone from this tablet" >&2; exit 1; }
+    [[ $(id -u) == 0 ]] || exec pkexec "$0" "$@"
+    a=$(bits a | tr ' ' '\n' | grep -vxE '50|55|51|52|53' || true)
+    b=$(bits b | tr ' ' '\n' | grep -vx 50 || true)
+    # Slot A active with its retries back at 7 and not unbootable; B stays as it is, only inactive.
+    setbits a $a 50 51 52 53
+    setbits b $b
+    sync
+    echo "ZUXOS starts from the next boot; back to SteamOS: fastboot set_active b"
+    systemctl reboot
+    ;;
+  *) echo "usage: tablet-slot status|android" >&2; exit 2 ;;
+esac

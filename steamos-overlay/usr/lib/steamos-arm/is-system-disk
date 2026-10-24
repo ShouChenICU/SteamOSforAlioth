@@ -1,0 +1,21 @@
+#!/bin/sh
+# is-system-disk <kernel name>: true when the partition or disk is on the disk
+# this system runs from (the one holding / or /home). udev
+# (98-steamos-arm-system-disk.rules) keeps that disk away from Steam's storage
+# settings, which would otherwise offer to format the microSD card the system
+# is booted from.
+name="$1"
+[ -n "$name" ] || exit 1
+disk_of() {  # a /dev node -> its whole-disk name
+  n=$(basename "$(readlink -f "$1")")
+  if [ -e "/sys/class/block/$n/partition" ]; then
+    n=$(basename "$(dirname "$(readlink -f "/sys/class/block/$n")")")
+  fi
+  echo "$n"
+}
+target=$(disk_of "/dev/$name")
+for mnt in / /home; do
+  src=$(awk -v m="$mnt" '$2 == m && $1 ~ /^\/dev\// {print $1}' /proc/self/mounts | tail -1)
+  [ -n "$src" ] && [ "$(disk_of "$src")" = "$target" ] && exit 0
+done
+exit 1

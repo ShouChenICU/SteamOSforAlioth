@@ -1,0 +1,13 @@
+#!/bin/bash
+# SteamOS on a microSD card (Legion Y700 Gen 4 dual boot): the card image is
+# 16 GB; on the first boot its partition grows to the end of the card, and
+# x-systemd.growfs in fstab grows the file system after it.
+set -u
+src=$(findmnt -no SOURCE /)
+[[ $src == /dev/mmcblk*p* ]] || exit 0
+disk=/dev/$(lsblk -no PKNAME "$src"); num=$(cat "/sys/class/block/${src##*/}/partition")
+echo ", +" | sfdisk -N "$num" --no-reread --force "$disk" >/dev/null 2>&1 || { echo "tablet-sd-grow: sfdisk failed" >&2; exit 0; }
+partx -u "$disk" 2>/dev/null || true
+resize2fs "$src" >/dev/null 2>&1 && echo "tablet-sd-grow: $src now $(lsblk -no SIZE "$src")"
+mkdir -p /var/lib/steamos-arm; : >/var/lib/steamos-arm/sd-grown
+exit 0

@@ -1,0 +1,255 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ShadowBlip/InputPlumber/main/rootfs/usr/share/inputplumber/schema/capability_map_v2.json
+# Retroid Pocket 5 / Flip 2 / Mini / Mini V2 and AYN Thor Lite (SM8250):
+# the "Retroid Pocket Gamepad" MCU driver. It reports X and Y the other way
+# round from their labels (BTN_NORTH is the left button), triggers as
+# ABS_HAT2X / ABS_HAT2Y, and Back as BTN_BACK, which opens Steam's Quick
+# Access menu like on our RP6. The Thor Lite's AYN key (KEY_F24 on its own
+# gpio-keys-ayn device) brings the bottom-screen dashboard to the front.
+version: 2
+kind: CapabilityMap
+name: Retroid 865 MCU Mapping
+id: retroid_865
+
+mapping:
+  - name: Guide
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_MODE
+          value_type: button
+    target_event:
+      gamepad:
+        button: Guide
+
+  - name: South Button
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_SOUTH
+          value_type: button
+    target_event:
+      gamepad:
+        button: South
+
+  - name: East Button
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_EAST
+          value_type: button
+    target_event:
+      gamepad:
+        button: East
+
+  - name: West Button
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_NORTH
+          value_type: button
+    target_event:
+      gamepad:
+        button: West
+
+  - name: North Button
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_WEST
+          value_type: button
+    target_event:
+      gamepad:
+        button: North
+
+  - name: Start
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_START
+          value_type: button
+    target_event:
+      gamepad:
+        button: Start
+
+  - name: Select
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_SELECT
+          value_type: button
+    target_event:
+      gamepad:
+        button: Select
+
+  - name: Quick Access
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_BACK
+          value_type: button
+    target_event:
+      gamepad:
+        button: QuickAccess
+
+  - name: Left Bumper
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_TL
+          value_type: button
+    target_event:
+      gamepad:
+        button: LeftBumper
+
+  - name: Right Bumper
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_TR
+          value_type: button
+    target_event:
+      gamepad:
+        button: RightBumper
+
+  - name: Left Trigger
+    source_events:
+      - evdev:
+          event_type: ABS
+          event_code: ABS_HAT2X
+          value_type: trigger
+    target_event:
+      gamepad:
+        trigger:
+          name: LeftTrigger
+
+  - name: Right Trigger
+    source_events:
+      - evdev:
+          event_type: ABS
+          event_code: ABS_HAT2Y
+          value_type: trigger
+    target_event:
+      gamepad:
+        trigger:
+          name: RightTrigger
+
+  - name: LeftPaddle1
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_Z
+          value_type: button
+    target_event:
+      gamepad:
+        button: LeftPaddle1
+
+  - name: RightPaddle1
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_C
+          value_type: button
+    target_event:
+      gamepad:
+        button: RightPaddle1
+
+  - name: Left Stick
+    source_events:
+      - evdev:
+          event_type: ABS
+          event_code: ABS_X
+          value_type: joystick_x
+      - evdev:
+          event_type: ABS
+          event_code: ABS_Y
+          value_type: joystick_y
+    target_event:
+      gamepad:
+        axis:
+          name: LeftStick
+
+  - name: Right Stick
+    source_events:
+      - evdev:
+          event_type: ABS
+          event_code: ABS_RX
+          value_type: joystick_x
+      - evdev:
+          event_type: ABS
+          event_code: ABS_RY
+          value_type: joystick_y
+    target_event:
+      gamepad:
+        axis:
+          name: RightStick
+
+  - name: Left Stick Click
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_THUMBL
+          value_type: button
+    target_event:
+      gamepad:
+        button: LeftStick
+
+  - name: Right Stick Click
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_THUMBR
+          value_type: button
+    target_event:
+      gamepad:
+        button: RightStick
+
+  - name: DPadUp
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_DPAD_UP
+          value_type: button
+    target_event:
+      gamepad:
+        button: DPadUp
+
+  - name: DPadDown
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_DPAD_DOWN
+          value_type: button
+    target_event:
+      gamepad:
+        button: DPadDown
+
+  - name: DPadLeft
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_DPAD_LEFT
+          value_type: button
+    target_event:
+      gamepad:
+        button: DPadLeft
+
+  - name: DPadRight
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: BTN_DPAD_RIGHT
+          value_type: button
+    target_event:
+      gamepad:
+        button: DPadRight
+
+  - name: AYN Key
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: KEY_F24
+          value_type: button
+    target_event:
+      keyboard: KeyF24
+
+filtered_events: []

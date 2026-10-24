@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# 首次开机：把根文件系统扩展到整个 userdata 分区，然后标记 A/B successful。
+#
+# 刷进 userdata 的镜像是按内容大小做的（约几 GB），而分区有 106 GiB。
+# 不扩展的话 Steam 第一次装游戏就没空间了，而报错离原因很远。
+#
+# 顺序是这个脚本的全部要点：
+#
+#   哨兵存在？ -- 不在就什么都不做（已经跑过了）
+#   扩展
+#   标记 successful
+#   删哨兵                      <-- 只有全都成功才走到这里
+#
+# 哨兵由构建时放进镜像（见 make-steamos-alioth.sh），这里只删不建。任何
+# 中断 —— 掉电、SIGKILL、resize2fs 失败 —— 都必然落在「哨兵还在」的状态，
+# 下次开机自然重来。反过来，如果先删哨兵再扩展，掉电一次就会留下一个
+# 永远只有几 GB 的根文件系统，而且没有任何东西会再去修它。
+#
+# 标记 successful 放在扩展成功**之后**：在那之前，bootloader 的自动回退
+# （连续失败 7 次换槽）是我们唯一的兜底，不能提前关掉它。
+set -euo pipefail
+
+ROOT_MNT="${ALIOTH_FIRSTBOOT_ROOT:-/}"
+# ALIOTH_MARK_SLOT 只为了能测：真机上就是下面那个默认路径。
+# 不留这个口子的话，「没有 qbootctl 时走备用路径」这条分支只能在真机上验，
+# 而它失败时要保住的恰恰是哨兵 —— 那是最不该靠真机碰运气的一条。
+SENTINEL="${ROOT_MNT%/}/var/lib/alioth-firstboot-pending"
+
+log() { echo "alioth-firstboot: $*"; }
+
+[[ -e "$SENTINEL" ]] || { log "哨兵不在，已经跑过了"; exit 0; }
+
+dev="$(findmnt -no SOURCE -T "$ROOT_MNT")"
+[[ -b "$dev" ]] || { log "根设备 '$dev' 不是块设备，放弃（哨兵保留）"; exit 1; }
+
+part_bytes="$(blockdev --getsize64 "$dev")"
+log "根设备 $dev，分区 $((part_bytes / 1024 / 1024)) MiB"
+
+# resize2fs 不带大小 = 占满整个设备。已经占满时它是个退出 0 的空操作，
+# 所以中断后重跑是安全的。
+log "resize2fs $dev"
+resize2fs "$dev"
+
+# 到这里文件系统才是完整的。现在可以关掉 bootloader 的自动回退。
+#
+# qbootctl（linux-msm，-u = mark boot successful）是这件事的参考实现，但
+# Valve 的 rootfs 里**没有**它（真机实测 command not found）。所以优先用
+# qbootctl —— 将来的镜像可能带上它 —— 没有就用我们自己那份，它只改 GPT
+# 表项 attributes 里的 successful 位和 tries-remaining 位，和 qbootctl 改的
+# 是同几位。为什么不能跳过这一步：ABL 每引导一个 successful=0 的槽就把
+# tries remaining 减 1，减到 0 就把槽标成 unbootable 并换槽；两个槽刷同一个
+# boot.img 也只是把「十几次开机之后谁都引导不了」推后一倍。
+if command -v qbootctl >/dev/null; then
+  if ! qbootctl -u; then
+    log "qbootctl -u 失败 —— 不删哨兵，下次开机重试。qbootctl 的用法："
+    qbootctl -h 2>&1 | sed 's/^/alioth-firstboot:   /' || true
+    exit 1
+  fi
+  log "已标记当前槽 successful（qbootctl）"
+elif ! "${ALIOTH_MARK_SLOT:-/usr/lib/steamos-arm/alioth-mark-slot-successful}"; then
+  log "标记槽 successful 失败 —— 不删哨兵，下次开机重试。"
+  exit 1
+else
+  log "已标记当前槽 successful（alioth-mark-slot-successful）"
+fi
+
+rm -f "$SENTINEL"
+log "完成"

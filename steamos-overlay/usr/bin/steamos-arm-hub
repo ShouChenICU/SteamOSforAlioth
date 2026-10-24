@@ -1,0 +1,3 @@
+#!/bin/sh
+# The Loadout engine (see /usr/lib/steamos-arm/hub/hub.py; the store side is loadout.py).
+exec /usr/bin/python3 /usr/lib/steamos-arm/hub/hub.py "$@"

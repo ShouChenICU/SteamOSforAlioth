@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ShadowBlip/InputPlumber/main/rootfs/usr/share/inputplumber/schema/capability_map_v2.json
+# alioth's two hardware keys -> the two Deck buttons that Deck UI offers no
+# touch-only route to.
+#
+#   volume up   (gpio-keys, KEY_VOLUMEUP)        -> Guide        Steam menu
+#   volume down (pm8941_resin, KEY_VOLUMEDOWN)   -> QuickAccess  QAM
+#
+# This does cost the hardware volume control, which is the only real downside
+# of the arrangement. It is recoverable and the spec accepts it (§7.1): the
+# Quick Access menu that volume-down now opens carries a volume slider, so
+# volume stays reachable in two presses instead of one. The alternative --
+# leaving the keys as volume and reaching Steam/QAM by touch alone -- loses
+# the Steam button entirely in games that capture the whole screen.
+version: 2
+kind: CapabilityMap
+name: Xiaomi alioth hardware keys
+id: alioth_keys
+
+mapping:
+  - name: Steam (volume up)
+    source_events:
+      - evdev: {event_type: KEY, event_code: KEY_VOLUMEUP, value_type: button}
+    target_event:
+      gamepad: {button: Guide}
+
+  - name: Quick Access (volume down)
+    source_events:
+      - evdev: {event_type: KEY, event_code: KEY_VOLUMEDOWN, value_type: button}
+    target_event:
+      gamepad: {button: QuickAccess}

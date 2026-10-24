@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+# Steam Gamepad UI OS-update hook (the same interface as Valve's script):
+#   check                           exit 0 and print the version when a newer
+#                                   release exists, 7 when up to date, 8 when
+#                                   one is already staged (with
+#                                   --enable-duplicate-detection), 1 on error
+#   (no argument)                   download and stage it, printing progress;
+#                                   exit 0 = restart to install
+#   --supports-duplicate-detection  exit 0
+#   --mark-oobe-only                stamp CompletedOOBE, exit 0
+# Releases come from GitHub or a microSD/USB drive (update-agent). Installing
+# needs root: steamos-arm-update.service does it, the user may start it
+# (polkit rule 60-steamos-arm-update), and this script relays its progress.
+set -uo pipefail
+
+STEAM_HOME="${STEAM_HOME:-/home/steamos}"
+REG_STEAM="${STEAM_HOME}/.steam/registry.vdf"
+REG_LOCAL="${STEAM_HOME}/.local/share/Steam/registry.vdf"
+
+mark_oobe_complete() {
+  python3 - "$@" <<'PY' 2>/dev/null || true
+import pathlib, re, sys
+
+WANT = (("CompletedOOBE", "1"), ("CompletedOOBEStage1", "1"))
+DROP = ("ForceOOBE", "ForceOOBEStage2")
+
+def upsert(path: pathlib.Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
+    if '"Steam"' not in text:
+        lines = "\n".join(f'\t\t\t\t\t"{k}"\t\t"{v}"' for k, v in WANT)
+        text = (
+            '"Registry"\n{\n\t"HKCU"\n\t{\n\t\t"Software"\n\t\t{\n'
+            '\t\t\t"Valve"\n\t\t\t{\n\t\t\t\t"Steam"\n\t\t\t\t{\n'
+            f"{lines}\n"
+            "\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n"
+        )
+        path.write_text(text, encoding="utf-8")
+        return
+
+    for k in DROP:
+        text = re.sub(r'^[ \t]*"' + re.escape(k) + r'"[ \t]*"[^"]*"[ \t]*\n', "", text, flags=re.M)
+
+    m = re.search(
+        r'("HKCU"\s*\{.*?^[ \t]*"Steam"\s*\n[ \t]*\{)',
+        text,
+        flags=re.M | re.S,
+    )
+    if not m:
+        m = re.search(r'(^[ \t]*"Steam"\s*\n[ \t]*\{)', text, flags=re.M)
+    if not m:
+        path.write_text(text, encoding="utf-8")
+        return
+
+    head_end = m.end()
+    i = head_end
+    depth = 1
+    while i < len(text) and depth:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+        i += 1
+    block = text[head_end : i - 1]
+    indent = "\t\t\t\t\t"
+    child = re.search(r'\n([ \t]+)"', "\n" + block)
+    if child:
+        indent = child.group(1)
+
+    for k, v in WANT:
+        pat = r'^[ \t]*"' + re.escape(k) + r'"[ \t]*"[^"]*"'
+        if re.search(pat, block, flags=re.M):
+            block = re.sub(pat, f'"{k}"\t\t"{v}"', block, count=1, flags=re.M)
+            block = re.sub(
+                r'^"' + re.escape(k) + r'"\t\t"' + re.escape(v) + r'"',
+                f'{indent}"{k}"\t\t"{v}"',
+                block,
+                count=1,
+                flags=re.M,
+            )
+        else:
+            block = f'\n{indent}"{k}"\t\t"{v}"' + (block if block.startswith("\n") else "\n" + block)
+
+    text = text[:head_end] + block + text[i - 1 :]
+    path.write_text(text, encoding="utf-8")
+
+for p in sys.argv[1:]:
+    upsert(pathlib.Path(p))
+PY
+}
+
+checkmode=""
+dup=""
+for arg in "$@"; do
+  case "$arg" in
+    --supports-duplicate-detection) exit 0 ;;
+    --mark-oobe-only)
+      mark_oobe_complete "$REG_STEAM" "$REG_LOCAL"
+      exit 0
+      ;;
+    check) checkmode=1 ;;
+    --enable-duplicate-detection) dup=1 ;;
+  esac
+done
+
+AGENT=/usr/lib/steamos-arm/update-agent
+KU=/usr/share/konkr-update/konkr-update.py
+[[ -x "$AGENT" && -f "$KU" ]] || exit 7
+
+if [[ -n "$dup" ]] && python3 "$KU" status 2>/dev/null | grep -q '"staged": true'; then
+  echo >&2 "An update has already been staged, restart to install it"
+  exit 8
+fi
+
+found="$("$AGENT" check 2>/dev/null)" || exit 1
+version="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1] or "{}").get("version",""))' "$found" 2>/dev/null)"
+if [[ -z "$version" ]]; then
+  echo >&2 "No update available"
+  exit 7
+fi
+echo >&2 "Update available"
+if [[ -n "$checkmode" ]]; then
+  echo "$version"
+  exit 0
+fi
+
+# Install: start the root service and pass its progress on to Steam.
+run=/run/steamos-arm-update
+systemctl start --no-block steamos-arm-update.service || { echo >&2 "Could not start the update"; exit 1; }
+last=""
+for _ in $(seq 1 14400); do
+  sleep 0.5
+  if [[ -r "$run/progress" ]]; then
+    pct="$(python3 -c 'import json; print(json.load(open("/run/steamos-arm-update/progress"))["percent"])' 2>/dev/null)"
+    [[ -n "$pct" && "$pct" != "$last" ]] && { printf '%s%%\n' "$pct"; last="$pct"; }
+  fi
+  state="$(systemctl show -p ActiveState --value steamos-arm-update.service)"
+  [[ "$state" == activating || "$state" == active ]] && continue
+  [[ -r "$run/result" ]] || continue
+  code="$(python3 -c 'import json; print(json.load(open("/run/steamos-arm-update/result"))["code"])' 2>/dev/null)"
+  python3 -c 'import json,sys; print(json.load(open("/run/steamos-arm-update/result"))["message"], file=sys.stderr)' 2>/dev/null
+  case "$code" in
+    0) echo >&2 "Applied an update"; exit 0 ;;
+    7) exit 7 ;;
+    8) exit 0 ;;
+    *) echo >&2 "Update failed"; exit 1 ;;
+  esac
+done
+echo >&2 "Update timed out"
+exit 1

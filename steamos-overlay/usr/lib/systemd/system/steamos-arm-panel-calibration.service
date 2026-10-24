@@ -1,0 +1,14 @@
+[Unit]
+Description=Apply the saved panel refresh calibration
+# Only panels whose driver can be tuned (RP6, Odin 3), and only once someone
+# has calibrated one (panel-calibrate).
+ConditionPathExists=/etc/steamos-arm/panel-calibration.json
+After=systemd-modules-load.service
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/steamos-arm/panel-calibrate apply
+
+[Install]
+WantedBy=multi-user.target

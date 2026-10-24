@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""Lenovo tablets: plugging in a charger while the tablet is off makes the
+bootloader start it in "charger mode" (Android shows its charging screen
+then). Linux used to boot all the way into Game Mode instead, so the tablet
+could never stay off while charging.
+
+In charger mode this holds the boot before the login manager: screen dark,
+battery charging. Hold Power for a second to start SteamOS; unplug the
+charger and it turns off. Every boot logs the bootloader's arguments, which
+is where charger mode shows up (androidboot.mode=charger)."""
+import os, select, struct, subprocess, sys, time
+from pathlib import Path
+
+SOURCES = ("/proc/cmdline", "/proc/bootconfig", "/sys/firmware/devicetree/base/chosen/bootargs")
+KEY_POWER, EV_KEY = 116, 1
+EVENT = struct.Struct("llHHi")
+
+
+def log(msg):
+    print(f"tablet-charger: {msg}", flush=True)
+
+
+def bootloader_args():
+    text = []
+    for p in SOURCES:
+        try:
+            text.append(Path(p).read_bytes().replace(b"\0", b" ").decode(errors="replace"))
+        except OSError:
+            pass
+    return " ".join(text)
+
+
+def charger_online():
+    for ps in Path("/sys/class/power_supply").glob("*"):
+        try:
+            if (ps / "type").read_text().strip() in ("USB", "Mains", "Wireless") \
+                    and (ps / "online").read_text().strip() == "1":
+                return True
+        except OSError:
+            pass
+    return False
+
+
+def battery():
+    for ps in Path("/sys/class/power_supply").glob("*"):
+        try:
+            if (ps / "type").read_text().strip() == "Battery":
+                return (ps / "capacity").read_text().strip()
+        except OSError:
+            pass
+    return "?"
+
+
+def power_keys():
+    """Input devices that have KEY_POWER."""
+    fds = []
+    for dev in Path("/sys/class/input").glob("event*"):
+        try:
+            bits = (dev / "device/capabilities/key").read_text().split()
+        except OSError:
+            continue
+        mask = 0
+        for i, word in enumerate(reversed(bits)):
+            mask |= int(word, 16) << (64 * i)
+        if mask >> KEY_POWER & 1:
+            try:
+                fds.append(os.open(f"/dev/input/{dev.name}", os.O_RDONLY | os.O_NONBLOCK))
+            except OSError:
+                pass
+    return fds
+
+
+def backlights(value=None):
+    saved = {}
+    for bl in Path("/sys/class/backlight").glob("*"):
+        try:
+            saved[bl] = (bl / "brightness").read_text().strip()
+            if value is not None:
+                (bl / "brightness").write_text(str(value))
+        except OSError:
+            pass
+    return saved
+
+
+def say(msg):
+    try:
+        with open("/dev/tty1", "w") as t:
+            t.write("\033[2J\033[H\n\n    " + msg + "\n")
+    except OSError:
+        pass
+
+
+def main():
+    args = bootloader_args()
+    log("bootloader: " + (" ".join(a for a in args.split() if a.startswith("androidboot.")) or "-"))
+    if "androidboot.mode=charger" not in args and "androidboot.mode=offmode_charging" not in args:
+        return 0
+    log(f"charger mode, battery {battery()}%: holding the boot until Power is held")
+    saved = backlights(0)
+    keys = power_keys()
+    if not keys:
+        log("no power key found, booting normally")
+        for bl, v in saved.items():
+            (bl / "brightness").write_text(v)
+        return 0
+    pressed_at, unplugged_at, shown_until = None, None, 0.0
+    while True:
+        r, _w, _x = select.select(keys, [], [], 1.0)
+        for fd in r:
+            try:
+                data = os.read(fd, EVENT.size * 32)
+            except OSError:
+                continue
+            for i in range(0, len(data) - EVENT.size + 1, EVENT.size):
+                _s, _u, etype, code, value = EVENT.unpack_from(data, i)
+                if etype == EV_KEY and code == KEY_POWER:
+                    if value == 1:
+                        pressed_at = time.monotonic()
+                        # Short press: show the charge for a few seconds.
+                        say(f"Charging  {battery()} %      Hold Power to start SteamOS")
+                        for bl, v in saved.items():
+                            try:
+                                (bl / "brightness").write_text(str(max(1, int(v) // 2)))
+                            except (OSError, ValueError):
+                                pass
+                        shown_until = time.monotonic() + 5
+                    elif value == 0:
+                        pressed_at = None
+        now = time.monotonic()
+        if pressed_at is not None and now - pressed_at >= 1.0:
+            log("Power held: starting SteamOS")
+            say("")
+            for bl, v in saved.items():
+                try:
+                    (bl / "brightness").write_text(v)
+                except OSError:
+                    pass
+            return 0
+        if shown_until and now > shown_until:
+            backlights(0); shown_until = 0.0
+        if charger_online():
+            unplugged_at = None
+        elif unplugged_at is None:
+            unplugged_at = now
+        elif now - unplugged_at > 5:
+            log("charger removed: turning off")
+            subprocess.run(["systemctl", "poweroff"])
+            return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

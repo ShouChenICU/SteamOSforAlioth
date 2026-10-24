@@ -1,0 +1,340 @@
+#!/usr/bin/env python3
+"""steamos-arm-power: Steam's own power controls for these handhelds.
+
+steamos-manager relays some of its interfaces to another service when a
+remotes.d file says so. This is that service: Steam's Quick Access
+Performance Profile, TDP limit and manual GPU clock land on the device
+daemon (konkrd or odin3d), so Steam, Handheld Control, the device buttons
+and the bottom screen all drive the same profile and never fight. The
+battery charge limit goes to the battery driver's own threshold.
+
+  PerformanceProfile1   Silent / Balanced / Turbo  -> state "profile"
+  TdpLimit1             watts                      -> state "tdp"
+  GpuPerformanceLevel1  auto / manual + MHz        -> state "gpu_manual_mhz"
+  BatteryChargeLimit1   percent                    -> charge_control_end_threshold
+  org.steamos_arm.Power1.BypassCharging (ours, for Handheld Control and the
+                        bottom screen): plugged in, the battery holds where it
+                        is and the device runs from the charger
+
+Changes made elsewhere (a button, Handheld Control) are announced to Steam
+with PropertiesChanged, so its sliders follow.
+"""
+from __future__ import annotations
+
+import glob
+import json
+import os
+import subprocess
+import sys
+
+import gi
+gi.require_version("Gio", "2.0")
+from gi.repository import Gio, GLib  # noqa: E402
+
+sys.path.insert(0, "/usr/lib/steamos-arm")
+import power_limits  # noqa: E402
+
+BUS_NAME = "org.steamos_arm.Power"
+PATH = "/org/steamos_arm/Power"
+IFACE = "com.steampowered.SteamOSManager1."
+OWN_STATE = "/var/lib/steamos-arm/power.json"
+REMOTES = "/etc/steamos-manager/remotes.d/50-steamos-arm-battery.toml"
+PROFILES = {"silent": "Silent", "balanced": "Balanced", "turbo": "Turbo"}
+
+if os.path.exists("/usr/lib/odin3/odin3d"):
+    DAEMON, STATE = "odin3d", "/var/lib/odin3/state.json"
+else:
+    DAEMON, STATE = "konkrd", "/var/lib/konkrd/state.json"
+
+
+def log(msg: str) -> None:
+    print(f"steamos-arm-power: {msg}", file=sys.stderr, flush=True)
+
+
+def read_json(path: str) -> dict:
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+def write_json(path: str, data: dict) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, indent=2)
+    os.replace(tmp, path)
+
+
+def change_daemon_state(**changes) -> None:
+    st = read_json(STATE)
+    for k, v in changes.items():
+        if v is None:
+            st.pop(k, None)
+        else:
+            st[k] = v
+    write_json(STATE, st)
+    subprocess.run(["systemctl", "kill", "-s", "HUP", f"{DAEMON}.service"], check=False)
+
+
+# ------------------------------------------------------------ battery ----
+def charge_node() -> str | None:
+    for b in glob.glob("/sys/class/power_supply/*"):
+        if open(f"{b}/type").read().strip() == "Battery" and os.path.exists(f"{b}/charge_control_end_threshold"):
+            return b
+    return None
+
+
+# The battery driver (qcom_battmgr) won't stop charging below 55 %: lower
+# requests come back as 50/55 (measured on a Pocket FIT).
+CHARGE_FLOOR = 55
+
+
+def write_thresholds(end: int, gap: int = 5) -> None:
+    node = charge_node()
+    if not node:
+        return
+    # The start threshold has to stay below the end one; charging resumes gap %
+    # under it, like a phone's "protect battery". The end goes first when
+    # raising, last when lowering, so start < end holds at every step.
+    pairs = [("charge_control_start_threshold", max(0, end - gap) if end < 100 else 0),
+             ("charge_control_end_threshold", end)]
+    try:
+        cur = int(open(f"{node}/charge_control_end_threshold").read().strip())
+    except (OSError, ValueError, TypeError):
+        cur = 100
+    if end > cur:
+        pairs.reverse()
+    for name, value in pairs:
+        try:
+            with open(f"{node}/{name}", "w") as fh:
+                fh.write(str(value))
+        except OSError as exc:
+            log(f"charge {name}={value}: {exc}")
+
+
+def capacity() -> int:
+    node = charge_node()
+    try:
+        return int(open(f"{node}/capacity").read().strip()) if node else 0
+    except (OSError, ValueError, TypeError):
+        return 0
+
+
+def apply_charging() -> None:
+    """Bypass wins over the limit; with neither, charge to full."""
+    own = read_json(OWN_STATE)
+    if own.get("bypass"):
+        # The charger runs the device while the battery sits still; a 1 %
+        # window tops it back up right away if a heavy game outpulls the
+        # charger, instead of letting it sag 5 % first.
+        write_thresholds(int(own.get("bypass_level", CHARGE_FLOOR)), gap=1)
+    else:
+        limit = int(own.get("charge_limit", 100))
+        write_thresholds(100 if limit < 0 else limit)
+
+
+def set_charge_limit(level: int) -> None:
+    own = read_json(OWN_STATE)
+    own["charge_limit"] = 100 if level < 0 else max(CHARGE_FLOOR, min(100, level))
+    write_json(OWN_STATE, own)
+    apply_charging()
+
+
+def set_bypass(on: bool) -> None:
+    """Hold the battery where it is now (55 % at least) while plugged in."""
+    own = read_json(OWN_STATE)
+    own["bypass"] = bool(on)
+    if on:
+        own["bypass_level"] = max(CHARGE_FLOOR, min(100, capacity()))
+    write_json(OWN_STATE, own)
+    apply_charging()
+    log(f"bypass charging {'on at ' + str(own.get('bypass_level')) + ' %' if on else 'off'}")
+
+
+def charge_limit() -> int:
+    """What Steam's slider shows: the limit chosen, not bypass's hold level."""
+    if not charge_node():
+        return -1
+    v = int(read_json(OWN_STATE).get("charge_limit", 100))
+    return -1 if v >= 100 else v
+
+
+# ----------------------------------------------------------- D-Bus side ----
+XML = f"""
+<node>
+  <interface name="{IFACE}PerformanceProfile1">
+    <property name="AvailablePerformanceProfiles" type="as" access="read"/>
+    <property name="PerformanceProfile" type="s" access="readwrite"/>
+    <property name="SuggestedDefaultPerformanceProfile" type="s" access="read"/>
+  </interface>
+  <interface name="{IFACE}TdpLimit1">
+    <property name="TdpLimit" type="u" access="readwrite"/>
+    <property name="TdpLimitMin" type="u" access="read"/>
+    <property name="TdpLimitMax" type="u" access="read"/>
+  </interface>
+  <interface name="{IFACE}GpuPerformanceLevel1">
+    <property name="AvailableGpuPerformanceLevels" type="as" access="read"/>
+    <property name="GpuPerformanceLevel" type="s" access="readwrite"/>
+    <property name="ManualGpuClock" type="u" access="readwrite"/>
+    <property name="ManualGpuClockMin" type="u" access="read"/>
+    <property name="ManualGpuClockMax" type="u" access="read"/>
+  </interface>
+  <interface name="org.steamos_arm.Power1">
+    <property name="BypassCharging" type="b" access="readwrite"/>
+    <property name="BypassLevel" type="i" access="read"/>
+    <property name="BypassSupported" type="b" access="read"/>
+  </interface>
+  <interface name="{IFACE}BatteryChargeLimit1">
+    <property name="MaxChargeLevel" type="i" access="readwrite"/>
+    <property name="SuggestedMinimumLimit" type="i" access="read"/>
+  </interface>
+</node>
+"""
+
+
+class Power:
+    def __init__(self):
+        self.conn = None
+        self.last = self.snapshot()
+        self.manual_mhz = power_limits.gpu_range_mhz()[1]   # what Steam's slider shows before manual
+
+    # --- what each property reads as, from the daemon's state ---
+    def values(self, st: dict | None = None) -> dict:
+        st = read_json(STATE) if st is None else st
+        lo, hi = power_limits.tdp_range()
+        gmin, gmax = power_limits.gpu_range_mhz()
+        manual = st.get("gpu_manual_mhz")
+        return {
+            "PerformanceProfile1": {
+                "AvailablePerformanceProfiles": GLib.Variant("as", list(PROFILES.values())),
+                "PerformanceProfile": GLib.Variant("s", PROFILES.get(st.get("profile", "balanced"), "Balanced")),
+                "SuggestedDefaultPerformanceProfile": GLib.Variant("s", "Balanced"),
+            },
+            "TdpLimit1": {
+                "TdpLimit": GLib.Variant("u", int(st.get("tdp") or hi)),
+                "TdpLimitMin": GLib.Variant("u", lo),
+                "TdpLimitMax": GLib.Variant("u", hi),
+            },
+            "GpuPerformanceLevel1": {
+                "AvailableGpuPerformanceLevels": GLib.Variant("as", ["auto", "manual"]),
+                "GpuPerformanceLevel": GLib.Variant("s", "manual" if manual else "auto"),
+                "ManualGpuClock": GLib.Variant("u", int(manual or self.manual_mhz or gmax)),
+                "ManualGpuClockMin": GLib.Variant("u", gmin),
+                "ManualGpuClockMax": GLib.Variant("u", gmax),
+            },
+            "BatteryChargeLimit1": {
+                "MaxChargeLevel": GLib.Variant("i", charge_limit()),
+                "SuggestedMinimumLimit": GLib.Variant("i", CHARGE_FLOOR),
+            },
+            "Power1": {
+                "BypassCharging": GLib.Variant("b", bool(read_json(OWN_STATE).get("bypass"))),
+                "BypassLevel": GLib.Variant("i", int(read_json(OWN_STATE).get("bypass_level", CHARGE_FLOOR))),
+                "BypassSupported": GLib.Variant("b", charge_node() is not None),
+            },
+        }
+
+    def snapshot(self) -> dict:
+        try:
+            return {i: {k: v.unpack() for k, v in p.items()} for i, p in self.values().items()}
+        except Exception:
+            return {}
+
+    @staticmethod
+    def short(iface: str) -> str:
+        return "Power1" if iface == "org.steamos_arm.Power1" else iface[len(IFACE):]
+
+    def get(self, conn, sender, path, iface, prop):
+        return self.values()[self.short(iface)][prop]
+
+    def set(self, conn, sender, path, iface, prop, value):
+        short = self.short(iface)
+        v = value.unpack()
+        st = read_json(STATE)
+        if short == "PerformanceProfile1" and prop == "PerformanceProfile":
+            key = next((k for k, name in PROFILES.items() if name.lower() == str(v).lower()), None)
+            if not key:
+                raise GLib.Error(f"unknown profile {v}")
+            change_daemon_state(profile=key)
+        elif short == "TdpLimit1" and prop == "TdpLimit":
+            lo, hi = power_limits.tdp_range()
+            w = max(lo, min(hi, int(v)))
+            change_daemon_state(tdp=None if w >= hi else w)
+        elif short == "GpuPerformanceLevel1" and prop == "GpuPerformanceLevel":
+            change_daemon_state(gpu_manual_mhz=self.manual_mhz if v == "manual" else None)
+        elif short == "GpuPerformanceLevel1" and prop == "ManualGpuClock":
+            gmin, gmax = power_limits.gpu_range_mhz()
+            self.manual_mhz = max(gmin, min(gmax, int(v)))
+            if st.get("gpu_manual_mhz"):
+                change_daemon_state(gpu_manual_mhz=self.manual_mhz)
+        elif short == "BatteryChargeLimit1" and prop == "MaxChargeLevel":
+            set_charge_limit(int(v))
+        elif short == "Power1" and prop == "BypassCharging":
+            set_bypass(bool(v))
+        else:
+            return False
+        GLib.idle_add(self.announce)
+        return True
+
+    def announce(self) -> bool:
+        """PropertiesChanged for whatever moved since the last look."""
+        now = self.snapshot()
+        if self.conn and now:
+            for iface, props in now.items():
+                changed = {k: v for k, v in props.items() if self.last.get(iface, {}).get(k) != v}
+                if not changed:
+                    continue
+                full = self.values()[iface]
+                name = "org.steamos_arm.Power1" if iface == "Power1" else IFACE + iface
+                self.conn.emit_signal(None, PATH, "org.freedesktop.DBus.Properties", "PropertiesChanged",
+                                      GLib.Variant("(sa{sv}as)", (name, {k: full[k] for k in changed}, [])))
+        self.last = now or self.last
+        return False
+
+    def watch(self) -> bool:
+        self.announce()
+        return True
+
+
+def main() -> int:
+    # The charge limit outlives reboots (the firmware forgets it).
+    if charge_node():
+        # First run: keep a limit set before us (Plasma's battery protection).
+        own = read_json(OWN_STATE)
+        if "charge_limit" not in own:
+            try:
+                end = int(open(f"{charge_node()}/charge_control_end_threshold").read().strip())
+            except (OSError, ValueError, TypeError):
+                end = 100
+            own["charge_limit"] = end
+            write_json(OWN_STATE, own)
+        apply_charging()
+        # steamos-manager only relays the battery interface where there is a
+        # threshold to set; the other three are in /usr/share.
+        os.makedirs(os.path.dirname(REMOTES), exist_ok=True)
+        with open(REMOTES, "w") as fh:
+            fh.write(f'[BatteryChargeLimit1]\nbus_name = "{BUS_NAME}"\nobject_path = "{PATH}"\n')
+    elif os.path.exists(REMOTES):
+        os.remove(REMOTES)
+
+    power = Power()
+    node = Gio.DBusNodeInfo.new_for_xml(XML)
+
+    def on_bus(conn, name):
+        power.conn = conn
+        for iface in node.interfaces:
+            conn.register_object(PATH, iface, None, power.get, power.set)
+        log(f"serving Steam's power controls for {DAEMON}")
+
+    Gio.bus_own_name(Gio.BusType.SYSTEM, BUS_NAME, Gio.BusNameOwnerFlags.NONE, on_bus, None,
+                     lambda *_: (log("lost the bus name"), loop.quit()))
+    GLib.timeout_add_seconds(1, power.watch)
+    loop = GLib.MainLoop()
+    loop.run()
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

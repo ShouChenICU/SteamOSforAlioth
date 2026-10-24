@@ -1,0 +1,936 @@
+
+## platform devices WITH a driver bound
+
+soc:qcom,camera-flash@0|CAM-FLASH-DRIVER|soc/qcom,camera-flash@0
+soc:qcom,camera-flash@1|CAM-FLASH-DRIVER|soc/qcom,camera-flash@1
+soc:qcom,camera-flash@2|CAM-FLASH-DRIVER|soc/qcom,camera-flash@2
+soc:qcom,msm-adsp-loader|adsp-loader|soc/qcom,msm-adsp-loader
+alarmtimer.0.auto|alarmtimer|
+soc:qcom,cpu0-cpugrp|arm-memlat-mon|soc/qcom,cpu0-cpugrp
+soc:qcom,cpu0-cpugrp:qcom,cpu0-cpu-l3-latmon|arm-memlat-mon|soc/qcom,cpu0-cpugrp/qcom,cpu0-cpu-l3-latmon
+soc:qcom,cpu0-cpugrp:qcom,cpu0-cpu-llcc-latmon|arm-memlat-mon|soc/qcom,cpu0-cpugrp/qcom,cpu0-cpu-llcc-latmon
+soc:qcom,cpu0-cpugrp:qcom,cpu0-llcc-ddr-latmon|arm-memlat-mon|soc/qcom,cpu0-cpugrp/qcom,cpu0-llcc-ddr-latmon
+soc:qcom,cpu4-cpugrp|arm-memlat-mon|soc/qcom,cpu4-cpugrp
+soc:qcom,cpu4-cpugrp:qcom,cpu4-computemon|arm-memlat-mon|soc/qcom,cpu4-cpugrp/qcom,cpu4-computemon
+soc:qcom,cpu4-cpugrp:qcom,cpu4-cpu-l3-latmon|arm-memlat-mon|soc/qcom,cpu4-cpugrp/qcom,cpu4-cpu-l3-latmon
+soc:qcom,cpu4-cpugrp:qcom,cpu4-cpu-llcc-latmon|arm-memlat-mon|soc/qcom,cpu4-cpugrp/qcom,cpu4-cpu-llcc-latmon
+soc:qcom,cpu4-cpugrp:qcom,cpu4-llcc-ddr-latmon|arm-memlat-mon|soc/qcom,cpu4-cpugrp/qcom,cpu4-llcc-ddr-latmon
+soc:qcom,cpu4-cpugrp:qcom,cpu4-qoslatmon|arm-memlat-mon|soc/qcom,cpu4-cpugrp/qcom,cpu4-qoslatmon
+soc:qcom,cpu4-cpugrp:qcom,cpu7-cpu-l3-latmon|arm-memlat-mon|soc/qcom,cpu4-cpugrp/qcom,cpu7-cpu-l3-latmon
+15000000.apps-smmu|arm-smmu|soc/apps-smmu@15000000
+3da0000.kgsl-smmu|arm-smmu|soc/kgsl-smmu@3da0000
+soc:dsu_pmu@0|arm_dsu_pmu|soc/dsu_pmu@0
+cpu-pmu|armv8-pmu|cpu-pmu
+soc:qcom,msm-audio-apr:qcom,q6core-audio:vote_lpass_audio_hw|audio-ref-clk|soc/qcom,msm-audio-apr/qcom,q6core-audio/vote_lpass_audio_hw
+soc:qcom,msm-audio-apr:qcom,q6core-audio:vote_lpass_core_hw|audio-ref-clk|soc/qcom,msm-audio-apr/qcom,q6core-audio/vote_lpass_core_hw
+soc:rx_core_clk|audio-ref-clk|soc/rx_core_clk
+soc:rx_npl_clk|audio-ref-clk|soc/rx_npl_clk
+soc:tx_core_clk|audio-ref-clk|soc/tx_core_clk
+soc:tx_npl_clk|audio-ref-clk|soc/tx_npl_clk
+soc:va_core_clk|audio-ref-clk|soc/va_core_clk
+soc:va_npl_clk|audio-ref-clk|soc/va_npl_clk
+soc:wsa_core_clk|audio-ref-clk|soc/wsa_core_clk
+soc:wsa_npl_clk|audio-ref-clk|soc/wsa_npl_clk
+soc:qcom,msm-audio-apr|audio_apr|soc/qcom,msm-audio-apr
+c440000.qcom,spmi:qcom,pm8150b@2:bcl@1d00|bcl_pmic5|soc/qcom,spmi@c440000/qcom,pm8150b@2/bcl@1d00
+c440000.qcom,spmi:qcom,pm8150l@4:bcl@3d00|bcl_pmic5|soc/qcom,spmi@c440000/qcom,pm8150l@4/bcl@3d00
+90b6400.qcom,cpu-cpu-llcc-bwmon|bimc-bwmon|soc/qcom,cpu-cpu-llcc-bwmon@90b6400
+9091000.qcom,cpu-llcc-ddr-bwmon|bimc-bwmon|soc/qcom,cpu-llcc-ddr-bwmon@9091000
+9093000.qcom,npu-llcc-ddr-bwmon|bimc-bwmon|soc/qcom,npu-llcc-ddr-bwmon@0x9093000
+60400.qcom,npu-npu-llcc-bwmon|bimc-bwmon|soc/qcom,npu-npu-llcc-bwmon@60300
+70300.qcom,npudsp-npu-ddr-bwmon|bimc-bwmon|soc/qcom,npudsp-npu-ddr-bwmon@70200
+bolero-clk-rsc-mngr|bolero-clk-rsc-mngr|soc/qcom,msm-audio-apr/qcom,q6core-audio/bolero-cdc/bolero-clk-rsc-mngr
+soc:qcom,msm-audio-apr:qcom,q6core-audio:bolero-cdc|bolero-codec|soc/qcom,msm-audio-apr/qcom,q6core-audio/bolero-cdc
+vendor:bt_qca6390|bt_power|vendor/bt_qca6390
+ac00000.qcom,a5|cam-a5|soc/qcom,a5@ac00000
+ac7a000.qcom,bps|cam-bps|soc/qcom,bps
+ac4f000.qcom,cci|cam-cci-driver|soc/qcom,cci@ac4f000
+ac50000.qcom,cci|cam-cci-driver|soc/qcom,cci@ac50000
+ac40000.qcom,cam-cpas|cam-cpas|soc/qcom,cam-cpas@ac40000
+ac6a000.qcom,csiphy|cam-csiphy-driver|soc/qcom,csiphy@ac6a000
+ac6c000.qcom,csiphy|cam-csiphy-driver|soc/qcom,csiphy@ac6c000
+ac6e000.qcom,csiphy|cam-csiphy-driver|soc/qcom,csiphy@ac6e000
+ac70000.qcom,csiphy|cam-csiphy-driver|soc/qcom,csiphy@ac70000
+ac72000.qcom,csiphy|cam-csiphy-driver|soc/qcom,csiphy@ac72000
+ac74000.qcom,csiphy|cam-csiphy-driver|soc/qcom,csiphy@ac74000
+ac9a000.qcom,ipe0|cam-ipe|soc/qcom,ipe0
+ac57000.qcom,jpegdma|cam-jpeg-dma|soc/qcom,jpegdma@ac57000
+ac53000.qcom,jpegenc|cam-jpeg-enc|soc/qcom,jpegenc@ac53000
+ad00000.qcom,camcc|cam_cc-kona|soc/qcom,camcc@ad00000
+ac5f000.qcom,fd|cam_fd_hw|soc/qcom,fd@ac5f000
+soc:qcom,cam-fd|cam_fd|soc/qcom,cam-fd
+soc:qcom,cam-icp|cam_icp|soc/qcom,cam-icp
+soc:qcom,cam-isp|cam_isp|soc/qcom,cam-isp
+soc:qcom,cam-jpeg|cam_jpeg|soc/qcom,cam-jpeg
+soc:qcom,cam-req-mgr|cam_req_mgr|soc/qcom,cam-req-mgr
+ac4f000.qcom,cci:qcom,cam-res-mgr|cam_res_mgr|soc/qcom,cci@ac4f000/qcom,cam-res-mgr
+cam_sync|cam_sync|
+acd9000.qcom,ife-lite0|cam_vfe|soc/qcom,ife-lite0@acd9000
+acdb200.qcom,ife-lite1|cam_vfe|soc/qcom,ife-lite1@acdb200
+acb4000.qcom,ife0|cam_vfe|soc/qcom,ife0@acb4000
+acc3000.qcom,ife1|cam_vfe|soc/qcom,ife1@acc3000
+soc:qcom,glink:cdsp:qcom,msm_cdsprm_rpmsg:qcom,cdsp-cdsp-l3-gov|cdsp-l3|soc/qcom,glink/cdsp/qcom,msm_cdsprm_rpmsg/qcom,cdsp-cdsp-l3-gov
+soc:qcom,msm-cdsp-loader|cdsp-loader|soc/qcom,msm-cdsp-loader
+18200000.rsc:qcom,rpmhclk|clk-rpmh|soc/rsc@18200000/qcom,rpmhclk
+80860000.reserved-memory|cmd-db|reserved-memory/reserved-memory@80860000
+b0000000.qcom,cnss-qca6390|cnss2|soc/qcom,cnss-qca6390@b0000000
+soc:cp_qc30|cp-qc30|soc/cp_qc30
+acb5200.qcom,csid0|csid_17x|soc/qcom,csid0@acb5200
+acc4200.qcom,csid1|csid_17x|soc/qcom,csid1@acc4200
+acd9200.qcom,csid-lite0|csid_lite|soc/qcom,csid-lite0@acd9200
+acdb400.qcom,csid-lite1|csid_lite|soc/qcom,csid-lite1@acdb400
+39f000c.qcom,avtimer|dev_avtimer|soc/qcom,avtimer@39f0000
+soc:qcom,cpu-cpu-llcc-bw|devbw|soc/qcom,cpu-cpu-llcc-bw
+soc:qcom,cpu-llcc-ddr-bw|devbw|soc/qcom,cpu-llcc-ddr-bw
+soc:qcom,cpu0-cpu-llcc-lat|devbw|soc/qcom,cpu0-cpu-llcc-lat
+soc:qcom,cpu0-llcc-ddr-lat|devbw|soc/qcom,cpu0-llcc-ddr-lat
+soc:qcom,cpu4-cpu-ddr-latfloor|devbw|soc/qcom,cpu4-cpu-ddr-latfloor
+soc:qcom,cpu4-cpu-llcc-lat|devbw|soc/qcom,cpu4-cpu-llcc-lat
+soc:qcom,cpu4-llcc-ddr-lat|devbw|soc/qcom,cpu4-llcc-ddr-lat
+soc:qcom,gpubw|devbw|soc/qcom,gpubw
+soc:qcom,npu-llcc-ddr-bw|devbw|soc/qcom,npu-llcc-ddr-bw
+soc:qcom,npu-npu-ddr-latfloor|devbw|soc/qcom,npu-npu-ddr-latfloor
+soc:qcom,npu-npu-llcc-bw|devbw|soc/qcom,npu-npu-llcc-bw
+soc:qcom,npudsp-npu-ddr-bw|devbw|soc/qcom,npudsp-npu-ddr-bw
+soc:qcom,snoc_cnoc_keepalive|devbw|soc/qcom,snoc_cnoc_keepalive
+18590000.qcom,devfreq-l3|devfreq-qcom-fw|soc/qcom,devfreq-l3
+18590000.qcom,devfreq-l3:qcom,cdsp-cdsp-l3-lat|devfreq-qcom-fw|soc/qcom,devfreq-l3/qcom,cdsp-cdsp-l3-lat
+18590000.qcom,devfreq-l3:qcom,cpu0-cpu-l3-lat|devfreq-qcom-fw|soc/qcom,devfreq-l3/qcom,cpu0-cpu-l3-lat
+18590000.qcom,devfreq-l3:qcom,cpu4-cpu-l3-lat|devfreq-qcom-fw|soc/qcom,devfreq-l3/qcom,cpu4-cpu-l3-lat
+18590000.qcom,devfreq-l3:qcom,cpu7-cpu-l3-lat|devfreq-qcom-fw|soc/qcom,devfreq-l3/qcom,cpu7-cpu-l3-lat
+soc:qcom,cpu4-cpu-ddr-qoslat|devfreq-qcom-qoslat|soc/qcom,cpu4-cpu-ddr-qoslat
+af00000.qcom,dispcc|disp_cc-kona|soc/qcom,dispcc@af00000
+ae94000.qcom,mdss_dsi_ctrl0|drm_dsi_ctrl|soc/qcom,mdss_dsi_ctrl0@ae94000
+ae96000.qcom,mdss_dsi_ctrl1|drm_dsi_ctrl|soc/qcom,mdss_dsi_ctrl1@ae96000
+ae94400.qcom,mdss_dsi_phy0|dsi_phy|soc/qcom,mdss_dsi_phy0@ae94400
+ae96400.qcom,mdss_dsi_phy1|dsi_phy|soc/qcom,mdss_dsi_phy1@ae96400
+a600000.dwc3|dwc3|soc/ssusb@a600000/dwc3@a600000
+soc:qcom,mdm0|ext-mdm|soc/qcom,mdm0
+soc:qcom,msm-adsprpc-mem|fastrpc|soc/qcom,msm-adsprpc-mem
+soc:qcom,msm_fastrpc|fastrpc|soc/qcom,msm_fastrpc
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb1|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb1
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb10|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb10
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb11|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb11
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb12|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb12
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb13|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb13
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb14|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb14
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb15|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb15
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb2|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb2
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb3|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb3
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb4|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb4
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb5|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb5
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb6|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb6
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb7|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb7
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb8|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb8
+soc:qcom,msm_fastrpc:qcom,msm_fastrpc_compute_cb9|fastrpc|soc/qcom,msm_fastrpc/qcom,msm_fastrpc_compute_cb9
+soc:fingerprint_fpc|fpc1020|soc/fingerprint_fpc
+100000.qcom,gcc|gcc-kona|soc/qcom,gcc@100000
+106004.qcom,gdsc|gdsc|soc/qcom,gdsc@106004
+10f004.qcom,gdsc|gdsc|soc/qcom,gdsc@10f004
+110004.qcom,gdsc|gdsc|soc/qcom,gdsc@110004
+16b004.qcom,gdsc|gdsc|soc/qcom,gdsc@16b004
+175004.qcom,gdsc|gdsc|soc/qcom,gdsc@175004
+177004.qcom,gdsc|gdsc|soc/qcom,gdsc@177004
+17d050.qcom,gdsc|gdsc|soc/qcom,gdsc@17d050
+17d054.qcom,gdsc|gdsc|soc/qcom,gdsc@17d054
+17d058.qcom,gdsc|gdsc|soc/qcom,gdsc@17d058
+17d06c.qcom,gdsc|gdsc|soc/qcom,gdsc@17d06c
+18d004.qcom,gdsc|gdsc|soc/qcom,gdsc@18d004
+3d9100c.qcom,gdsc|gdsc|soc/qcom,gdsc@3d9100c
+3d9106c.qcom,gdsc|gdsc|soc/qcom,gdsc@3d9106c
+9981004.qcom,gdsc|gdsc|soc/qcom,gdsc@9981004
+abf0bf8.qcom,gdsc|gdsc|soc/qcom,gdsc@abf0bf8
+abf0c98.qcom,gdsc|gdsc|soc/qcom,gdsc@abf0c98
+abf0d18.qcom,gdsc|gdsc|soc/qcom,gdsc@abf0d18
+abf0d98.qcom,gdsc|gdsc|soc/qcom,gdsc@abf0d98
+ad07004.qcom,gdsc|gdsc|soc/qcom,gdsc@ad07004
+ad08004.qcom,gdsc|gdsc|soc/qcom,gdsc@ad08004
+ad09004.qcom,gdsc|gdsc|soc/qcom,gdsc@ad09004
+ad0a004.qcom,gdsc|gdsc|soc/qcom,gdsc@ad0a004
+ad0b004.qcom,gdsc|gdsc|soc/qcom,gdsc@ad0b004
+ad0c144.qcom,gdsc|gdsc|soc/qcom,gdsc@ad0c144
+af03000.qcom,gdsc|gdsc|soc/qcom,gdsc@af03000
+800000.qcom,gpi-dma|gpi_dma|soc/qcom,gpi-dma@800000
+900000.qcom,gpi-dma|gpi_dma|soc/qcom,gpi-dma@900000
+a00000.qcom,gpi-dma|gpi_dma|soc/qcom,gpi-dma@a00000
+soc:gpio_keys|gpio-keys|soc/gpio_keys
+3d90000.qcom,gpucc|gpu_cc-kona|soc/qcom,gpucc@3d90000
+soc:qcom,msm_gsi|gsi|soc/qcom,msm_gsi
+884000.i2c|i2c_geni|soc/i2c@884000
+888000.i2c|i2c_geni|soc/i2c@888000
+984000.i2c|i2c_geni|soc/i2c@984000
+98c000.i2c|i2c_geni|soc/i2c@98c000
+a8c000.i2c|i2c_geni|soc/i2c@a8c000
+soc:qcom,ion|ion-msm|soc/qcom,ion
+soc:qcom,ipa-mpm|ipa_mpm|soc/qcom,ipa-mpm
+1e00000.qcom,ipa|ipa|soc/qcom,ipa@1e00000
+1e00000.qcom,ipa:ipa_smmu_11ad|ipa|soc/qcom,ipa@1e00000/ipa_smmu_11ad
+1e00000.qcom,ipa:ipa_smmu_ap|ipa|soc/qcom,ipa@1e00000/ipa_smmu_ap
+1e00000.qcom,ipa:ipa_smmu_uc|ipa|soc/qcom,ipa@1e00000/ipa_smmu_uc
+1e00000.qcom,ipa:ipa_smmu_wlan|ipa|soc/qcom,ipa@1e00000/ipa_smmu_wlan
+3d00000.qcom,kgsl-3d0|kgsl-3d|soc/qcom,kgsl-3d0@3d00000
+soc:qcom,kgsl-busmon|kgsl-busmon|soc/qcom,kgsl-busmon
+soc:qcom,msm-audio-apr:qcom,q6core-audio:sound|kona-asoc-snd|soc/qcom,msm-audio-apr/qcom,q6core-audio/sound
+9200000.cache-controller|kona-llcc|soc/cache-controller@9200000
+f000000.pinctrl|kona-pinctrl|soc/pinctrl@f000000
+soc:qcom,lpm-levels|lpm-levels|soc/qcom,lpm-levels
+soc:maxim_ds28e16|maxim_ds28e16|soc/maxim_ds28e16
+ae94900.qcom,mdss_dsi_pll|mdss_pll|soc/qcom,mdss_dsi_pll@ae94900
+ae96900.qcom,mdss_dsi_pll|mdss_pll|soc/qcom,mdss_dsi_pll@ae96900
+soc:qcom,msm-audio-apr:qcom,msm-audio-ion|msm-audio-ion|soc/qcom,msm-audio-apr/qcom,msm-audio-ion
+soc:qcom,msm-pri-auxpcm|msm-auxpcm-dev|soc/qcom,msm-pri-auxpcm
+soc:qcom,msm-quat-auxpcm|msm-auxpcm-dev|soc/qcom,msm-quat-auxpcm
+soc:qcom,msm-quin-auxpcm|msm-auxpcm-dev|soc/qcom,msm-quin-auxpcm
+soc:qcom,msm-sec-auxpcm|msm-auxpcm-dev|soc/qcom,msm-sec-auxpcm
+soc:qcom,msm-sen-auxpcm|msm-auxpcm-dev|soc/qcom,msm-sen-auxpcm
+soc:qcom,msm-tert-auxpcm|msm-auxpcm-dev|soc/qcom,msm-tert-auxpcm
+soc:msm_cdc_pinctrl@159|msm-cdc-pinctrl|soc/msm_cdc_pinctrl@159
+soc:msm_cdc_pinctrl@32|msm-cdc-pinctrl|soc/msm_cdc_pinctrl@32
+soc:qcom,msm-audio-apr:qcom,q6core-audio:cdc_dmic01_pinctrl|msm-cdc-pinctrl|soc/qcom,msm-audio-apr/qcom,q6core-audio/cdc_dmic01_pinctrl
+soc:qcom,msm-audio-apr:qcom,q6core-audio:cdc_dmic23_pinctrl|msm-cdc-pinctrl|soc/qcom,msm-audio-apr/qcom,q6core-audio/cdc_dmic23_pinctrl
+soc:qcom,msm-audio-apr:qcom,q6core-audio:rx_swr_clk_data_pinctrl|msm-cdc-pinctrl|soc/qcom,msm-audio-apr/qcom,q6core-audio/rx_swr_clk_data_pinctrl
+soc:qcom,msm-audio-apr:qcom,q6core-audio:tert_tdm_pinctl|msm-cdc-pinctrl|soc/qcom,msm-audio-apr/qcom,q6core-audio/tert_tdm_pinctl
+soc:qcom,msm-audio-apr:qcom,q6core-audio:tx_swr_clk_data_pinctrl|msm-cdc-pinctrl|soc/qcom,msm-audio-apr/qcom,q6core-audio/tx_swr_clk_data_pinctrl
+soc:qcom,msm-compress-dsp|msm-compress-dsp|soc/qcom,msm-compress-dsp
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-rx-cdc-dma-0-rx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-rx-cdc-dma-0-rx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-rx-cdc-dma-1-rx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-rx-cdc-dma-1-rx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-rx-cdc-dma-2-rx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-rx-cdc-dma-2-rx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-rx-cdc-dma-3-rx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-rx-cdc-dma-3-rx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-rx-cdc-dma-4-rx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-rx-cdc-dma-4-rx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-rx-cdc-dma-5-rx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-rx-cdc-dma-5-rx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-rx-cdc-dma-6-rx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-rx-cdc-dma-6-rx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-rx-cdc-dma-7-rx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-rx-cdc-dma-7-rx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-tx-cdc-dma-0-tx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-tx-cdc-dma-0-tx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-tx-cdc-dma-1-tx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-tx-cdc-dma-1-tx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-tx-cdc-dma-2-tx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-tx-cdc-dma-2-tx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-tx-cdc-dma-3-tx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-tx-cdc-dma-3-tx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-tx-cdc-dma-4-tx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-tx-cdc-dma-4-tx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-tx-cdc-dma-5-tx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-tx-cdc-dma-5-tx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-va-cdc-dma-0-tx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-va-cdc-dma-0-tx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-va-cdc-dma-1-tx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-va-cdc-dma-1-tx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-va-cdc-dma-2-tx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-va-cdc-dma-2-tx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-wsa-cdc-dma-0-rx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-wsa-cdc-dma-0-rx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-wsa-cdc-dma-0-tx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-wsa-cdc-dma-0-tx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-wsa-cdc-dma-1-rx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-wsa-cdc-dma-1-rx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-wsa-cdc-dma-1-tx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-wsa-cdc-dma-1-tx
+soc:qcom,msm-dai-cdc-dma:qcom,msm-dai-wsa-cdc-dma-2-tx|msm-dai-cdc-dma-dev|soc/qcom,msm-dai-cdc-dma/qcom,msm-dai-wsa-cdc-dma-2-tx
+soc:qcom,msm-dai-cdc-dma|msm-dai-cdc-dma|soc/qcom,msm-dai-cdc-dma
+soc:qcom,msm-dai-fe|msm-dai-fe|soc/qcom,msm-dai-fe
+soc:qcom,msm-dai-mi2s|msm-dai-mi2s|soc/qcom,msm-dai-mi2s
+soc:qcom,msm-dai-q6-afe-loopback-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6-afe-loopback-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-afe-proxy-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-afe-proxy-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-afe-proxy-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-afe-proxy-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-be-afe-pcm-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-be-afe-pcm-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-be-afe-pcm-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-be-afe-pcm-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-bt-sco-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-bt-sco-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-bt-sco-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-bt-sco-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-incall-music-2-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-incall-music-2-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-incall-music-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-incall-music-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-incall-record-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-incall-record-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-incall-record-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-incall-record-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-int-fm-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-int-fm-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-int-fm-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-int-fm-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-proxy-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-proxy-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-proxy-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-proxy-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-0-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-0-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-0-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-0-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-1-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-1-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-1-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-1-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-2-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-2-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-2-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-2-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-3-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-3-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-3-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-3-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-4-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-4-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-4-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-4-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-5-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-5-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-5-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-5-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-6-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-6-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-7-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-7-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-7-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-7-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-8-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-8-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-sb-8-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-sb-8-tx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-usb-audio-rx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-usb-audio-rx
+soc:qcom,msm-dai-q6:qcom,msm-dai-q6-usb-audio-tx|msm-dai-q6-dev|soc/qcom,msm-dai-q6/qcom,msm-dai-q6-usb-audio-tx
+soc:qcom,msm-dai-mi2s:qcom,msm-dai-q6-mi2s-prim|msm-dai-q6-mi2s|soc/qcom,msm-dai-mi2s/qcom,msm-dai-q6-mi2s-prim
+soc:qcom,msm-dai-mi2s:qcom,msm-dai-q6-mi2s-quat|msm-dai-q6-mi2s|soc/qcom,msm-dai-mi2s/qcom,msm-dai-q6-mi2s-quat
+soc:qcom,msm-dai-mi2s:qcom,msm-dai-q6-mi2s-quin|msm-dai-q6-mi2s|soc/qcom,msm-dai-mi2s/qcom,msm-dai-q6-mi2s-quin
+soc:qcom,msm-dai-mi2s:qcom,msm-dai-q6-mi2s-sec|msm-dai-q6-mi2s|soc/qcom,msm-dai-mi2s/qcom,msm-dai-q6-mi2s-sec
+soc:qcom,msm-dai-mi2s:qcom,msm-dai-q6-mi2s-senary|msm-dai-q6-mi2s|soc/qcom,msm-dai-mi2s/qcom,msm-dai-q6-mi2s-senary
+soc:qcom,msm-dai-mi2s:qcom,msm-dai-q6-mi2s-tert|msm-dai-q6-mi2s|soc/qcom,msm-dai-mi2s/qcom,msm-dai-q6-mi2s-tert
+soc:qcom,msm-dai-q6-spdif-pri-rx|msm-dai-q6-spdif|soc/qcom,msm-dai-q6-spdif-pri-rx
+soc:qcom,msm-dai-q6-spdif-pri-tx|msm-dai-q6-spdif|soc/qcom,msm-dai-q6-spdif-pri-tx
+soc:qcom,msm-dai-q6-spdif-sec-rx|msm-dai-q6-spdif|soc/qcom,msm-dai-q6-spdif-sec-rx
+soc:qcom,msm-dai-q6-spdif-sec-tx|msm-dai-q6-spdif|soc/qcom,msm-dai-q6-spdif-sec-tx
+soc:qcom,msm-dai-tdm-pri-rx:qcom,msm-dai-q6-tdm-pri-rx-0|msm-dai-q6-tdm|soc/qcom,msm-dai-tdm-pri-rx/qcom,msm-dai-q6-tdm-pri-rx-0
+soc:qcom,msm-dai-tdm-pri-tx:qcom,msm-dai-q6-tdm-pri-tx-0|msm-dai-q6-tdm|soc/qcom,msm-dai-tdm-pri-tx/qcom,msm-dai-q6-tdm-pri-tx-0
+soc:qcom,msm-dai-tdm-quat-rx:qcom,msm-dai-q6-tdm-quat-rx-0|msm-dai-q6-tdm|soc/qcom,msm-dai-tdm-quat-rx/qcom,msm-dai-q6-tdm-quat-rx-0
+soc:qcom,msm-dai-tdm-quat-tx:qcom,msm-dai-q6-tdm-quat-tx-0|msm-dai-q6-tdm|soc/qcom,msm-dai-tdm-quat-tx/qcom,msm-dai-q6-tdm-quat-tx-0
+soc:qcom,msm-dai-tdm-quin-rx:qcom,msm-dai-q6-tdm-quin-rx-0|msm-dai-q6-tdm|soc/qcom,msm-dai-tdm-quin-rx/qcom,msm-dai-q6-tdm-quin-rx-0
+soc:qcom,msm-dai-tdm-quin-tx:qcom,msm-dai-q6-tdm-quin-tx-0|msm-dai-q6-tdm|soc/qcom,msm-dai-tdm-quin-tx/qcom,msm-dai-q6-tdm-quin-tx-0
+soc:qcom,msm-dai-tdm-sec-rx:qcom,msm-dai-q6-tdm-sec-rx-0|msm-dai-q6-tdm|soc/qcom,msm-dai-tdm-sec-rx/qcom,msm-dai-q6-tdm-sec-rx-0
+soc:qcom,msm-dai-tdm-sec-tx:qcom,msm-dai-q6-tdm-sec-tx-0|msm-dai-q6-tdm|soc/qcom,msm-dai-tdm-sec-tx/qcom,msm-dai-q6-tdm-sec-tx-0
+soc:qcom,msm-dai-tdm-sen-rx:qcom,msm-dai-q6-tdm-sen-rx-0|msm-dai-q6-tdm|soc/qcom,msm-dai-tdm-sen-rx/qcom,msm-dai-q6-tdm-sen-rx-0
+soc:qcom,msm-dai-tdm-sen-tx:qcom,msm-dai-q6-tdm-sen-tx-0|msm-dai-q6-tdm|soc/qcom,msm-dai-tdm-sen-tx/qcom,msm-dai-q6-tdm-sen-tx-0
+soc:qcom,msm-dai-tdm-tert-rx:qcom,msm-dai-q6-tdm-tert-rx-0|msm-dai-q6-tdm|soc/qcom,msm-dai-tdm-tert-rx/qcom,msm-dai-q6-tdm-tert-rx-0
+soc:qcom,msm-dai-tdm-tert-rx:qcom,msm-dai-q6-tdm-tert-rx-1|msm-dai-q6-tdm|soc/qcom,msm-dai-tdm-tert-rx/qcom,msm-dai-q6-tdm-tert-rx-1
+soc:qcom,msm-dai-tdm-tert-tx:qcom,msm-dai-q6-tdm-tert-tx-0|msm-dai-q6-tdm|soc/qcom,msm-dai-tdm-tert-tx/qcom,msm-dai-q6-tdm-tert-tx-0
+soc:qcom,msm-dai-tdm-tert-tx:qcom,msm-dai-q6-tdm-tert-tx-1|msm-dai-q6-tdm|soc/qcom,msm-dai-tdm-tert-tx/qcom,msm-dai-q6-tdm-tert-tx-1
+soc:qcom,msm-dai-q6|msm-dai-q6|soc/qcom,msm-dai-q6
+soc:qcom,msm-dai-tdm-pri-rx|msm-dai-tdm|soc/qcom,msm-dai-tdm-pri-rx
+soc:qcom,msm-dai-tdm-pri-tx|msm-dai-tdm|soc/qcom,msm-dai-tdm-pri-tx
+soc:qcom,msm-dai-tdm-quat-rx|msm-dai-tdm|soc/qcom,msm-dai-tdm-quat-rx
+soc:qcom,msm-dai-tdm-quat-tx|msm-dai-tdm|soc/qcom,msm-dai-tdm-quat-tx
+soc:qcom,msm-dai-tdm-quin-rx|msm-dai-tdm|soc/qcom,msm-dai-tdm-quin-rx
+soc:qcom,msm-dai-tdm-quin-tx|msm-dai-tdm|soc/qcom,msm-dai-tdm-quin-tx
+soc:qcom,msm-dai-tdm-sec-rx|msm-dai-tdm|soc/qcom,msm-dai-tdm-sec-rx
+soc:qcom,msm-dai-tdm-sec-tx|msm-dai-tdm|soc/qcom,msm-dai-tdm-sec-tx
+soc:qcom,msm-dai-tdm-sen-rx|msm-dai-tdm|soc/qcom,msm-dai-tdm-sen-rx
+soc:qcom,msm-dai-tdm-sen-tx|msm-dai-tdm|soc/qcom,msm-dai-tdm-sen-tx
+soc:qcom,msm-dai-tdm-tert-rx|msm-dai-tdm|soc/qcom,msm-dai-tdm-tert-rx
+soc:qcom,msm-dai-tdm-tert-tx|msm-dai-tdm|soc/qcom,msm-dai-tdm-tert-tx
+soc:qcom,dsi-display-primary|msm-dsi-display|soc/qcom,dsi-display-primary
+soc:qcom,dsi-display-secondary|msm-dsi-display|soc/qcom,dsi-display-secondary
+a600000.ssusb|msm-dwc3|soc/ssusb@a600000
+88e0000.qcom,msm-eud|msm-eud|soc/qcom,msm-eud@ff0000
+soc:qcom,msm-lsm-client|msm-lsm-client|soc/qcom,msm-lsm-client
+soc:qcom,msm-pcm-afe|msm-pcm-afe|soc/qcom,msm-pcm-afe
+soc:qcom,msm-pcm-dsp-noirq|msm-pcm-dsp-noirq|soc/qcom,msm-pcm-dsp-noirq
+soc:qcom,msm-pcm|msm-pcm-dsp|soc/qcom,msm-pcm
+soc:qcom,msm-pcm-low-latency|msm-pcm-dsp|soc/qcom,msm-pcm-low-latency
+soc:qcom,msm-ultra-low-latency|msm-pcm-dsp|soc/qcom,msm-ultra-low-latency
+soc:qcom,msm-pcm-dtmf|msm-pcm-dtmf|soc/qcom,msm-pcm-dtmf
+soc:qcom,msm-pcm-hostless|msm-pcm-hostless|soc/qcom,msm-pcm-hostless
+soc:qcom,msm-pcm-loopback|msm-pcm-loopback|soc/qcom,msm-pcm-loopback
+soc:qcom,msm-pcm-loopback-low-latency|msm-pcm-loopback|soc/qcom,msm-pcm-loopback-low-latency
+soc:qcom,msm-pcm-routing|msm-pcm-routing|soc/qcom,msm-pcm-routing
+soc:qcom,msm-pcm-voice|msm-pcm-voice|soc/qcom,msm-pcm-voice
+c264000.restart|msm-restart|soc/restart@c264000
+soc:qcom,msm-stub-codec|msm-stub-codec|soc/qcom,msm-stub-codec
+soc:qcom,msm-transcode-loopback|msm-transcode-loopback|soc/qcom,msm-transcode-loopback
+c222000.tsens|msm-tsens|soc/tsens@c222000
+c223000.tsens|msm-tsens|soc/tsens@c223000
+88e3000.hsphy|msm-usb-hsphy|soc/hsphy@88e3000
+soc:qcom,msm-voip-dsp|msm-voip-dsp|soc/qcom,msm-voip-dsp
+16e0000.ad-hoc-bus|msm_bus_device|soc/ad-hoc-bus
+soc:qcom,bus_proxy_client|msm_bus_proxy_client_device|soc/qcom,bus_proxy_client
+18200000.rsc:msm_bus_apps_rsc|msm_bus_rsc|soc/rsc@18200000/msm_bus_apps_rsc
+af20000.rsc:msm_bus_disp_rsc|msm_bus_rsc|soc/rsc@af20000/msm_bus_disp_rsc
+soc:qcom,cam-cdm-intf|msm_cam_cdm_intf|soc/qcom,cam-cdm-intf
+ac4d000.qcom,cpas-cdm0|msm_cam_cdm|soc/qcom,cpas-cdm0@ac4d000
+soc:qcom,cam_smmu|msm_cam_smmu|soc/qcom,cam_smmu
+soc:qcom,cam_smmu:msm_cam_icp_fw|msm_cam_smmu|soc/qcom,cam_smmu/msm_cam_icp_fw
+soc:qcom,cam_smmu:msm_cam_smmu_cpas_cdm|msm_cam_smmu|soc/qcom,cam_smmu/msm_cam_smmu_cpas_cdm
+soc:qcom,cam_smmu:msm_cam_smmu_fd|msm_cam_smmu|soc/qcom,cam_smmu/msm_cam_smmu_fd
+soc:qcom,cam_smmu:msm_cam_smmu_icp|msm_cam_smmu|soc/qcom,cam_smmu/msm_cam_smmu_icp
+soc:qcom,cam_smmu:msm_cam_smmu_ife|msm_cam_smmu|soc/qcom,cam_smmu/msm_cam_smmu_ife
+soc:qcom,cam_smmu:msm_cam_smmu_jpeg|msm_cam_smmu|soc/qcom,cam_smmu/msm_cam_smmu_jpeg
+soc:qcom,cam_smmu:msm_cam_smmu_secure|msm_cam_smmu|soc/qcom,cam_smmu/msm_cam_smmu_secure
+soc:qcom,glink:cdsp:qcom,msm_cdsprm_rpmsg:qcom,msm_cdsp_rm|msm_cdsp_rm|soc/qcom,glink/cdsp/qcom,msm_cdsprm_rpmsg/qcom,msm_cdsp_rm
+ab00000.qcom,cvp|msm_cvp_v4l2|soc/qcom,cvp@ab00000
+ab00000.qcom,cvp:cvp_bus_ddr|msm_cvp_v4l2|soc/qcom,cvp@ab00000/cvp_bus_ddr
+ab00000.qcom,cvp:cvp_cnoc|msm_cvp_v4l2|soc/qcom,cvp@ab00000/cvp_cnoc
+ab00000.qcom,cvp:cvp_non_secure_cb|msm_cvp_v4l2|soc/qcom,cvp@ab00000/cvp_non_secure_cb
+ab00000.qcom,cvp:cvp_secure_nonpixel_cb|msm_cvp_v4l2|soc/qcom,cvp@ab00000/cvp_secure_nonpixel_cb
+ab00000.qcom,cvp:cvp_secure_pixel_cb|msm_cvp_v4l2|soc/qcom,cvp@ab00000/cvp_secure_pixel_cb
+ab00000.qcom,cvp:qcom,msm-cvp,mem_cdsp|msm_cvp_v4l2|soc/qcom,cvp@ab00000/qcom,msm-cvp,mem_cdsp
+ae00000.qcom,mdss_mdp|msm_drm|soc/qcom,mdss_mdp@ae00000
+998000.qcom,qup_uart|msm_geni_serial|soc/qcom,qup_uart@998000
+soc:qcom,glink|msm_glink|soc/qcom,glink
+soc:qcom,msm_hdcp|msm_hdcp|soc/qcom,msm_hdcp
+soc:qcom,glink:cdsp:qcom,msm_cdsprm_rpmsg:qcom,msm_hvx_rm|msm_hvx_rm|soc/qcom,glink/cdsp/qcom,msm_cdsprm_rpmsg/qcom,msm_hvx_rm
+soc:lmh_isense_cdsp|msm_isense_cdsp|soc/lmh_isense_cdsp
+18591000.qcom,cpufreq-hw:qcom,limits-dcvs|msm_lmh_dcvs|soc/qcom,cpufreq-hw/qcom,limits-dcvs
+soc:mem_dump|msm_mem_dump|soc/mem_dump
+soc:qcom,msm_notifier@0|msm_notifier|soc/qcom,msm_notifier@0
+9900000.qcom,msm_npu|msm_npu|soc/qcom,msm_npu@9800000
+793000.qrng|msm_rng|soc/qrng@793000
+soc:qcom,sps|msm_sps|soc/qcom,sps
+aa00000.qcom,vidc|msm_vidc_v4l2|soc/qcom,vidc@aa00000
+aa00000.qcom,vidc:bus_cnoc|msm_vidc_v4l2|soc/qcom,vidc@aa00000/bus_cnoc
+aa00000.qcom,vidc:non_secure_cb|msm_vidc_v4l2|soc/qcom,vidc@aa00000/non_secure_cb
+aa00000.qcom,vidc:secure_bitstream_cb|msm_vidc_v4l2|soc/qcom,vidc@aa00000/secure_bitstream_cb
+aa00000.qcom,vidc:secure_non_pixel_cb|msm_vidc_v4l2|soc/qcom,vidc@aa00000/secure_non_pixel_cb
+aa00000.qcom,vidc:secure_pixel_cb|msm_vidc_v4l2|soc/qcom,vidc@aa00000/secure_pixel_cb
+aa00000.qcom,vidc:venus_bus_ddr|msm_vidc_v4l2|soc/qcom,vidc@aa00000/venus_bus_ddr
+aa00000.qcom,vidc:venus_bus_llcc|msm_vidc_v4l2|soc/qcom,vidc@aa00000/venus_bus_llcc
+17c10000.qcom,wdt|msm_watchdog|soc/qcom,wdt@17c10000
+ae00000.qcom,mdss_mdp:qcom,smmu_sde_sec_cb|msmdrm_smmu|soc/qcom,mdss_mdp@ae00000/qcom,smmu_sde_sec_cb
+ae00000.qcom,mdss_mdp:qcom,smmu_sde_unsec_cb|msmdrm_smmu|soc/qcom,mdss_mdp@ae00000/qcom,smmu_sde_unsec_cb
+3ac0000.slim|ngd_msm_ctrl|soc/slim@3ac0000
+9980000.qcom,npucc|npu_cc-kona|soc/qcom,npucc@9980000
+soc:onewire_gpio|onewire_gpio|soc/onewire_gpio
+1c00000.qcom,pcie|pci-msm|soc/qcom,pcie@1c00000
+1c10000.qcom,pcie|pci-msm|soc/qcom,pcie@1c10000
+soc:qcom,msm-audio-apr:qcom,q6core-audio|q6core_audio|soc/qcom,msm-audio-apr/qcom,q6core-audio
+1de0000.qcedev|qce|soc/qcedev@1de0000
+1de0000.qcedev:qcom_cedev_ns_cb|qce|soc/qcedev@1de0000/qcom_cedev_ns_cb
+1de0000.qcedev:qcom_cedev_s_cb|qce|soc/qcedev@1de0000/qcom_cedev_s_cb
+ac4f000.qcom,cci:qcom,actuator@0|qcom,actuator|soc/qcom,cci@ac4f000/qcom,actuator@0
+ac4f000.qcom,cci:qcom,actuator@3|qcom,actuator|soc/qcom,cci@ac4f000/qcom,actuator@3
+c440000.qcom,spmi:qcom,pm8150@0:adc_tm@3500|qcom,adc-tm|soc/qcom,spmi@c440000/qcom,pm8150@0/adc_tm@3500
+c440000.qcom,spmi:qcom,pm8150b@2:adc_tm@3500|qcom,adc-tm|soc/qcom,spmi@c440000/qcom,pm8150b@2/adc_tm@3500
+c440000.qcom,spmi:qcom,pm8150l@4:adc_tm@3500|qcom,adc-tm|soc/qcom,spmi@c440000/qcom,pm8150l@4/adc_tm@3500
+ac4f000.qcom,cci:qcom,cam-sensor@0|qcom,camera|soc/qcom,cci@ac4f000/qcom,cam-sensor@0
+ac4f000.qcom,cci:qcom,cam-sensor@3|qcom,camera|soc/qcom,cci@ac4f000/qcom,cam-sensor@3
+ac50000.qcom,cci:qcom,cam-sensor@1|qcom,camera|soc/qcom,cci@ac50000/qcom,cam-sensor@1
+ac50000.qcom,cci:qcom,cam-sensor@2|qcom,camera|soc/qcom,cci@ac50000/qcom,cam-sensor@2
+ac4f000.qcom,cci:qcom,eeprom@0|qcom,eeprom|soc/qcom,cci@ac4f000/qcom,eeprom@0
+ac4f000.qcom,cci:qcom,eeprom@3|qcom,eeprom|soc/qcom,cci@ac4f000/qcom,eeprom@3
+ac50000.qcom,cci:qcom,eeprom@1|qcom,eeprom|soc/qcom,cci@ac50000/qcom,eeprom@1
+ac50000.qcom,cci:qcom,eeprom@2|qcom,eeprom|soc/qcom,cci@ac50000/qcom,eeprom@2
+c440000.qcom,spmi:qcom,pm8150b@2:qpnp,fg|qcom,fg-gen4|soc/qcom,spmi@c440000/qcom,pm8150b@2/qpnp,fg
+888000.i2c:qcom,pm8008@8:qcom,pm8008-chip@900|qcom,pm8008-chip|soc/i2c@888000/qcom,pm8008@8/qcom,pm8008-chip@900
+888000.i2c:qcom,pm8008@9:qcom,pm8008-regulator|qcom,pm8008-regulator|soc/i2c@888000/qcom,pm8008@9/qcom,pm8008-regulator
+c440000.qcom,spmi:qcom,pm8150b@3:qcom,pwms@b100|qcom,pwm-lpg|soc/qcom,spmi@c440000/qcom,pm8150b@3/qcom,pwms@b100
+c440000.qcom,spmi:qcom,pm8150l@5:qcom,pwms@b100|qcom,pwm-lpg|soc/qcom,spmi@c440000/qcom,pm8150l@5/qcom,pwms@b100
+c440000.qcom,spmi:qcom,pm8150l@5:qcom,pwms@bc00|qcom,pwm-lpg|soc/qcom,spmi@c440000/qcom,pm8150l@5/qcom,pwms@bc00
+780000.qfprom|qcom,qfprom|soc/qfprom@780000
+c440000.qcom,spmi:qcom,pm8150b@2:qcom,sdam-qnovo@b000|qcom,qnovo5-driver|soc/qcom,spmi@c440000/qcom,pm8150b@2/qcom,sdam-qnovo@b000
+c440000.qcom,spmi:qcom,pm8150l@5:qcom,leds@d300|qcom,qpnp-flash-led-v2|soc/qcom,spmi@c440000/qcom,pm8150l@5/qcom,leds@d300
+c440000.qcom,spmi:qcom,pm8150b@2:qcom,pbs@7200|qcom,qpnp-pbs|soc/qcom,spmi@c440000/qcom,pm8150b@2/qcom,pbs@7200
+c440000.qcom,spmi:qcom,pm8150@0:qcom,power-on@800|qcom,qpnp-power-on|soc/qcom,spmi@c440000/qcom,pm8150@0/qcom,power-on@800
+c440000.qcom,spmi:qcom,pm8150b@2:qcom,power-on@800|qcom,qpnp-power-on|soc/qcom,spmi@c440000/qcom,pm8150b@2/qcom,power-on@800
+c440000.qcom,spmi:qcom,pm8150l@4:qcom,power-on@800|qcom,qpnp-power-on|soc/qcom,spmi@c440000/qcom,pm8150l@4/qcom,power-on@800
+c440000.qcom,spmi:qcom,pmxprairie@8:qcom,power-on@800|qcom,qpnp-power-on|soc/qcom,spmi@c440000/qcom,pmxprairie@8/qcom,power-on@800
+888000.i2c:qcom,pm8008@8:qcom,revid@100|qcom,qpnp-revid|soc/i2c@888000/qcom,pm8008@8/qcom,revid@100
+c440000.qcom,spmi:qcom,pm8150b@2:qcom,revid@100|qcom,qpnp-revid|soc/qcom,spmi@c440000/qcom,pm8150b@2/qcom,revid@100
+c440000.qcom,spmi:qcom,pm8150l@4:qcom,revid@100|qcom,qpnp-revid|soc/qcom,spmi@c440000/qcom,pm8150l@4/qcom,revid@100
+c440000.qcom,spmi:qcom,pm8150b@2:qcom,qpnp-smb5|qcom,qpnp-smb5|soc/qcom,spmi@c440000/qcom,pm8150b@2/qcom,qpnp-smb5
+88e7000.refgen-regulator|qcom,refgen-regulator|soc/refgen-regulator@88e7000
+18200000.rsc:rpmh-regulator-bobc1|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-bobc1
+18200000.rsc:rpmh-regulator-cxlvl|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-cxlvl
+18200000.rsc:rpmh-regulator-ebilvl|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ebilvl
+18200000.rsc:rpmh-regulator-gfxlvl|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-gfxlvl
+18200000.rsc:rpmh-regulator-lcxlvl|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-lcxlvl
+18200000.rsc:rpmh-regulator-ldoa10|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoa10
+18200000.rsc:rpmh-regulator-ldoa12|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoa12
+18200000.rsc:rpmh-regulator-ldoa13|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoa13
+18200000.rsc:rpmh-regulator-ldoa14|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoa14
+18200000.rsc:rpmh-regulator-ldoa15|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoa15
+18200000.rsc:rpmh-regulator-ldoa16|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoa16
+18200000.rsc:rpmh-regulator-ldoa17|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoa17
+18200000.rsc:rpmh-regulator-ldoa18|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoa18
+18200000.rsc:rpmh-regulator-ldoa2|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoa2
+18200000.rsc:rpmh-regulator-ldoa3|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoa3
+18200000.rsc:rpmh-regulator-ldoa5|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoa5
+18200000.rsc:rpmh-regulator-ldoa6|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoa6
+18200000.rsc:rpmh-regulator-ldoa7|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoa7
+18200000.rsc:rpmh-regulator-ldoa9|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoa9
+18200000.rsc:rpmh-regulator-ldoc1|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoc1
+18200000.rsc:rpmh-regulator-ldoc10|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoc10
+18200000.rsc:rpmh-regulator-ldoc11|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoc11
+18200000.rsc:rpmh-regulator-ldoc2|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoc2
+18200000.rsc:rpmh-regulator-ldoc3|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoc3
+18200000.rsc:rpmh-regulator-ldoc4|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoc4
+18200000.rsc:rpmh-regulator-ldoc5|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoc5
+18200000.rsc:rpmh-regulator-ldoc6|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoc6
+18200000.rsc:rpmh-regulator-ldoc7|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoc7
+18200000.rsc:rpmh-regulator-ldoc8|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoc8
+18200000.rsc:rpmh-regulator-ldoc9|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-ldoc9
+18200000.rsc:rpmh-regulator-lmxlvl|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-lmxlvl
+18200000.rsc:rpmh-regulator-mmcxlvl|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-mmcxlvl
+18200000.rsc:rpmh-regulator-mxlvl|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-mxlvl
+18200000.rsc:rpmh-regulator-smpa4|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-smpa4
+18200000.rsc:rpmh-regulator-smpa5|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-smpa5
+18200000.rsc:rpmh-regulator-smpa6|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-smpa6
+18200000.rsc:rpmh-regulator-smpc7|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-smpc7
+18200000.rsc:rpmh-regulator-smpc8|qcom,rpmh-regulator|soc/rsc@18200000/rpmh-regulator-smpc8
+c440000.qcom,spmi:qcom,pm8150@0:clock-controller@5b00|qcom,spmi-pmic-clkdiv|soc/qcom,spmi@c440000/qcom,pm8150@0/clock-controller@5b00
+c440000.qcom,spmi:qcom,pm8150b@2:clock-controller@6000|qcom,spmi-pmic-clkdiv|soc/qcom,spmi@c440000/qcom,pm8150b@2/clock-controller@6000
+c440000.qcom,spmi:qcom,pm8150l@4:clock-controller@5b00|qcom,spmi-pmic-clkdiv|soc/qcom,spmi@c440000/qcom,pm8150l@4/clock-controller@5b00
+c440000.qcom,spmi:qcom,pm8150@0:sdam@b100|qcom,spmi-sdam|soc/qcom,spmi@c440000/qcom,pm8150@0/sdam@b100
+c440000.qcom,spmi:qcom,pm8150b@3:qcom,leds@d000|qcom,tri-led|soc/qcom,spmi@c440000/qcom,pm8150b@3/qcom,leds@d000
+18591000.qcom,cpufreq-hw|qcom-cpufreq-hw|soc/qcom,cpufreq-hw
+9095000.llcc-pmu|qcom-llcc-pmu|soc/llcc-pmu@9095000
+soc:qcom,msm-audio-apr:qcom,q6core-audio:lpi_pinctrl@33c0000|qcom-lpi-pinctrl|soc/qcom,msm-audio-apr/qcom,q6core-audio/lpi_pinctrl@33c0000
+soc:qcom,smem|qcom-smem|soc/qcom,smem
+c440000.qcom,spmi:qcom,pm8150@0:vadc@3100|qcom-spmi-adc5.c|soc/qcom,spmi@c440000/qcom,pm8150@0/vadc@3100
+c440000.qcom,spmi:qcom,pm8150b@2:vadc@3100|qcom-spmi-adc5.c|soc/qcom,spmi@c440000/qcom,pm8150b@2/vadc@3100
+c440000.qcom,spmi:qcom,pm8150l@4:vadc@3100|qcom-spmi-adc5.c|soc/qcom,spmi@c440000/qcom,pm8150l@4/vadc@3100
+888000.i2c:qcom,pm8008@8:pinctrl@c000|qcom-spmi-gpio|soc/i2c@888000/qcom,pm8008@8/pinctrl@c000
+c440000.qcom,spmi:qcom,pm8150@0:pinctrl@c000|qcom-spmi-gpio|soc/qcom,spmi@c440000/qcom,pm8150@0/pinctrl@c000
+c440000.qcom,spmi:qcom,pm8150b@2:pinctrl@c000|qcom-spmi-gpio|soc/qcom,spmi@c440000/qcom,pm8150b@2/pinctrl@c000
+c440000.qcom,spmi:qcom,pm8150l@4:pinctrl@c000|qcom-spmi-gpio|soc/qcom,spmi@c440000/qcom,pm8150l@4/pinctrl@c000
+188501c.mailbox|qcom_apcs_ipc|soc/mailbox@188501c
+soc:hwlock|qcom_hwspinlock|soc/hwlock
+408000.qcom,ipcc|qcom_ipcc|soc/qcom,ipcc@408000
+soc:qcom,smp2p-adsp|qcom_smp2p|soc/qcom,smp2p-adsp
+soc:qcom,smp2p-cdsp|qcom_smp2p|soc/qcom,smp2p-cdsp
+soc:qcom,smp2p-dsps|qcom_smp2p|soc/qcom,smp2p-dsps
+soc:qcom,smp2p-npu|qcom_smp2p|soc/qcom,smp2p-npu
+1de0000.qcrypto|qcrypto|soc/qcrypto@1de0000
+soc:qmi-tmd-devices|qmi-cooling-device|soc/qmi-tmd-devices
+soc:qmi-ts-sensors|qmi-therm-sensors|soc/qmi-ts-sensors
+soc:qcom,aopclk|qmp-aop-clk|soc/qcom,aopclk
+c300000.qcom,qmp-aop|qmp_mbox|soc/qcom,qmp-aop@c300000
+c440000.qcom,spmi:qcom,pm8150b@2:qcom,usb-pdphy@1700|qpnp-pdphy|soc/qcom,spmi@c440000/qcom,pm8150b@2/qcom,usb-pdphy@1700
+soc:qcom,qsee_irq_bridge|qsee_ipc_irq_bridge|soc/qcom,qsee_irq_bridge
+soc:qcom,qsee_irq|qsee_irq|soc/qcom,qsee_irq
+82400000.qseecom|qseecom|soc/qseecom@82400000
+1519d000.adsp_tbu|qsmmuv500-tbu|soc/apps-smmu@15000000/adsp_tbu@1519d000
+151a1000.anoc_1_pcie_tbu|qsmmuv500-tbu|soc/apps-smmu@15000000/anoc_1_pcie_tbu@151a1000
+15185000.anoc_1_tbu|qsmmuv500-tbu|soc/apps-smmu@15000000/anoc_1_tbu@15185000
+15189000.anoc_2_tbu|qsmmuv500-tbu|soc/apps-smmu@15000000/anoc_2_tbu@15189000
+15199000.compute_dsp_0_tbu|qsmmuv500-tbu|soc/apps-smmu@15000000/compute_dsp_0_tbu@15199000
+15195000.compute_dsp_1_tbu|qsmmuv500-tbu|soc/apps-smmu@15000000/compute_dsp_1_tbu@15195000
+1518d000.mnoc_hf_0_tbu|qsmmuv500-tbu|soc/apps-smmu@15000000/mnoc_hf_0_tbu@1518d000
+15191000.mnoc_hf_1_tbu|qsmmuv500-tbu|soc/apps-smmu@15000000/mnoc_hf_1_tbu@15191000
+151a5000.mnoc_sf_0_tbu|qsmmuv500-tbu|soc/apps-smmu@15000000/mnoc_sf_0_tbu@151a5000
+151a9000.mnoc_sf_1_tbu|qsmmuv500-tbu|soc/apps-smmu@15000000/mnoc_sf_1_tbu@151a9000
+3dc5000.gfx_0_tbu|qsmmuv500-tbu|soc/kgsl-smmu@3da0000/gfx_0_tbu@3dc5000
+3dc9000.gfx_1_tbu|qsmmuv500-tbu|soc/kgsl-smmu@3da0000/gfx_1_tbu@3dc9000
+9c0000.qcom,qupv3_0_geni_se|qupv3_geni_se|soc/qcom,qupv3_0_geni_se@9c0000
+ac0000.qcom,qupv3_1_geni_se|qupv3_geni_se|soc/qcom,qupv3_1_geni_se@ac0000
+8c0000.qcom,qupv3_2_geni_se|qupv3_geni_se|soc/qcom,qupv3_2_geni_se@8c0000
+b0000000.ramoops|ramoops|reserved-memory/ramoops
+reg-dummy|reg-dummy|
+soc:display_gpio_regulator_vci|reg-fixed-voltage|soc/display_gpio_regulator_vci
+soc:regulator-haptics-boost|reg-fixed-voltage|soc/regulator-haptics-boost
+soc:touch_vddio_vreg|reg-fixed-voltage|soc/touch_vddio_vreg
+soc:vdd_boost_vreg|reg-fixed-voltage|soc/vdd_boost_vreg
+soc:qcom,rmnet-ipa|rmnet_ipa3|soc/qcom,rmnet-ipa
+18200000.rsc|rpmh|soc/rsc@18200000
+af20000.rsc|rpmh|soc/rsc@af20000
+c440000.qcom,spmi:qcom,pm8150@0:qcom,pm8150_rtc|rtc-pm8xxx|soc/qcom,spmi@c440000/qcom,pm8150@0/qcom,pm8150_rtc
+rx-macro|rx_macro|soc/qcom,msm-audio-apr/qcom,q6core-audio/bolero-cdc/rx-macro@3200000
+af20000.rsc:sde_rsc_rpmh|sde_rsc_rpmh|soc/rsc@af20000/sde_rsc_rpmh
+af20000.qcom,sde_rscc|sde_rsc|soc/qcom,sde_rscc@af20000
+soc:qcom,wb-display@0|sde_wb|soc/qcom,wb-display@0
+soc:qcom,msm-ssc-sensors|sensors-ssc|soc/qcom,msm-ssc-sensors
+87900000.smcinvoke|smcinvoke|soc/smcinvoke@87900000
+soc:qcom,smp2p_sleepstate|smp2p_sleepstate|soc/qcom,smp2p_sleepstate
+snd-soc-dummy|snd-soc-dummy|
+soc:qcom,spcom|spcom|soc/qcom,spcom
+988000.spi|spi_geni|soc/spi@988000
+990000.spi|spi_geni|soc/spi@990000
+c440000.qcom,spmi:qcom,pm8150@0:qcom,temp-alarm@2400|spmi-temp-alarm|soc/qcom,spmi@c440000/qcom,pm8150@0/qcom,temp-alarm@2400
+c440000.qcom,spmi:qcom,pm8150b@2:qcom,temp-alarm@2400|spmi-temp-alarm|soc/qcom,spmi@c440000/qcom,pm8150b@2/qcom,temp-alarm@2400
+c440000.qcom,spmi:qcom,pm8150l@4:qcom,temp-alarm@2400|spmi-temp-alarm|soc/qcom,spmi@c440000/qcom,pm8150l@4/qcom,temp-alarm@2400
+c440000.qcom,spmi|spmi_pmic_arb|soc/qcom,spmi@c440000
+soc:qcom,spss_utils|spss_utils|soc/qcom,spss_utils
+soc:qcom,npu-staticmap-mon|static-map|soc/qcom,npu-staticmap-mon
+abb0000.qcom,cvpss|subsys-pil-tz|soc/qcom,cvpss@abb0000
+soc:qcom,ipa_fws|subsys-pil-tz|soc/qcom,ipa_fws
+soc:qcom,ipa_uc|subsys-pil-tz|soc/qcom,ipa_uc
+soc:qcom,kgsl-hyp|subsys-pil-tz|soc/qcom,kgsl-hyp
+17300000.qcom,lpass|subsys-pil-tz|soc/qcom,lpass@17300000
+9800000.qcom,npu|subsys-pil-tz|soc/qcom,npu@9800000
+188101c.qcom,spss|subsys-pil-tz|soc/qcom,spss@1880000
+5c00000.qcom,ssc|subsys-pil-tz|soc/qcom,ssc@5c00000
+8300000.qcom,turing|subsys-pil-tz|soc/qcom,turing@8300000
+aab0000.qcom,venus|subsys-pil-tz|soc/qcom,venus@aab0000
+rx_swr_ctrl|swr-wcd|soc/qcom,msm-audio-apr/qcom,q6core-audio/bolero-cdc/rx-macro@3200000/rx_swr_master
+tx_swr_ctrl|swr-wcd|soc/qcom,msm-audio-apr/qcom,q6core-audio/bolero-cdc/tx-macro@3220000/tx_swr_master
+18200000.rsc:system_pm|system_pm|soc/rsc@18200000/system_pm
+tx-macro|tx_macro|soc/qcom,msm-audio-apr/qcom,q6core-audio/bolero-cdc/tx-macro@3220000
+soc:usb_audio_qmi_dev|uaudio-qmi|soc/usb_audio_qmi_dev
+1d87000.ufsphy_mem|ufs_qcom_phy_qmp_v4|soc/ufsphy_mem@1d87000
+1d84000.ufshc|ufshcd-qcom|soc/ufshc@1d84000
+us_prox.0|us_prox|
+a704000.qcom,usbbam|usb_bam|soc/ssusb@a600000/qcom,usbbam@a704000
+soc:usb_nop_phy|usb_phy_generic|soc/usb_nop_phy
+soc:usbpd_pm|usbpd-pm|soc/usbpd_pm
+va-macro|va_macro|soc/qcom,msm-audio-apr/qcom,q6core-audio/bolero-cdc/va-macro@3370000
+abf0000.qcom,videocc|video_cc-kona|soc/qcom,videocc@abf0000
+soc:qcom,msm-audio-apr:qcom,voice-mhi-audio|voice_mhi_audio|soc/qcom,msm-audio-apr/qcom,voice-mhi-audio
+wcd938x-codec|wcd938x_codec|soc/qcom,msm-audio-apr/qcom,q6core-audio/bolero-cdc/wcd938x-codec
+soc:xiaomi_touch|xiaomi-touch|soc/xiaomi_touch
+
+## buses present
+
+amba clockevents clocksource container cpu esoc event_source genpd gpio hid i2c i3c iio mdio_bus media mhi mipi-dsi msm-bus-type msm_subsys nvmem pci platform rpmsg scsi serial slimbus soc soundwire spi spmi typec usb workqueue 
+## spmi
+
+spmi-0 
+spmi0-00 pmic-spmi
+spmi0-01 pmic-spmi
+spmi0-02 pmic-spmi
+spmi0-03 pmic-spmi
+spmi0-04 pmic-spmi
+spmi0-05 pmic-spmi
+spmi0-08 pmic-spmi
+spmi0-09 pmic-spmi
+spmi0-0a pmic-spmi
+spmi0-0b pmic-spmi
+
+## soundwire / slimbus
+
+/sys/bus/slimbus/devices:
+btfmslim_slave
+btfmslim_slave_ifd
+sb-1
+
+/sys/bus/soundwire/devices:
+swr1
+swr2
+wcd938x-slave.d01170223
+wcd938x-slave.d01170224
+
+## pci
+
+0000:00:00.0 vendor=0x17cb device=0x010b drv=pci-msm-rc
+0000:01:00.0 vendor=0x17cb device=0x1101 drv=cnss_pci
+0002:00:00.0 vendor=0x17cb device=0x010b drv=pci-msm-rc
+0002:01:00.0 vendor=0x17cb device=0x0306 drv=mhi
+
+## remoteproc
+
+* name= state= fw=
+
+## rpmsg
+
+qcom,glink:adsp.IPCRTR.-1.-1
+qcom,glink:adsp.LOOPBACK_CTL_LPASS.-1.-1
+qcom,glink:adsp.apr_audio_svc.-1.-1
+qcom,glink:adsp.fastrpcglink-apps-dsp.-1.-1
+qcom,glink:adsp.mhi_sat.-1.-1
+qcom,glink:adsp.pcie_drv.-1.-1
+qcom,glink:adsp.rpmsg_chrdev.0.0
+qcom,glink:cdsp.IPCRTR.-1.-1
+qcom,glink:cdsp.LOOPBACK_CTL_CDSP.-1.-1
+qcom,glink:cdsp.cdsprmglink-apps-dsp.-1.-1
+qcom,glink:cdsp.cvp-glink-apps-dsp.-1.-1
+qcom,glink:cdsp.fastrpcglink-apps-dsp.-1.-1
+qcom,glink:cdsp.rpmsg_chrdev.0.0
+qcom,glink:dsps.IPCRTR.-1.-1
+qcom,glink:dsps.LOOPBACK_CTL_DSPS.-1.-1
+qcom,glink:dsps.fastrpcglink-apps-dsp.-1.-1
+qcom,glink:dsps.mhi_sat.-1.-1
+qcom,glink:dsps.rpmsg_chrdev.0.0
+qcom,glink:npu.IPCRTR.-1.-1
+qcom,glink:npu.rpmsg_chrdev.0.0
+
+## classes
+
+android_usb avtimer backlight bdi block bluetooth bsg bt-dev camlog ccid_usb chardev cvp devfreq diag dma drm esoc-dev extcon fastrpc firmware gpio gsi_usb hdcp hidraw hwmon i2c-adapter i2c-dev ieee80211 input iommu ipa ipaIpv6CTTable ipaNatTable ipa_adpl ipa_odl_ctl ipa_tethering_bridge kgsl leds lirc mdio_bus mem mhi_uci misc mius_chardev msm-rng msm_sps msm_usb_bridge net npu nqx onewire oplus_chg pci_bus phy power_supply pps pwm qce qcom-battery qdss_bridge qnovo qsee_ipc_irq_bridge qseecom ramdump rc regulator rfkill rpmsg rtc scsi_device scsi_disk scsi_generic scsi_host smcinvoke sound spcom spi_master spidev spss_utils ssc subsys synx_device thermal touch tty typec typec_mux udc usbpd usbrndis video4linux wakeup wlan wwan_ioctl xt_hardidletimer xt_idletimer zram-control 
+## leds
+
+flashlight max=750
+hr_led1 max=255
+hr_led2 max=255
+led:flash_0 max=1500
+led:flash_1 max=1500
+led:switch_0 max=255
+led:switch_1 max=255
+led:switch_2 max=255
+led:switch_3 max=255
+led:torch_0 max=500
+led:torch_1 max=500
+
+## extcon
+
+--- extcon0 88e0000.qcom,msm-eud
+USB=0
+SDP=0
+--- extcon1 c440000.qcom,spmi:qcom,pm8150b@2:qcom,qpnp-smb5
+USB=0
+USB-HOST=0
+--- extcon2 c440000.qcom,spmi:qcom,pm8150b@2:qcom,usb-pdphy@1700
+USB=1
+USB-HOST=0
+DP=0
+
+## typec
+
+/sys/class/typec:
+port0
+port0-partner
+--- port0
+   data_role=host [device]
+   power_role=source [sink]
+   port_type=[dual] source sink
+   power_operation_mode=default
+   preferred_role=sink
+   vconn_source=no
+   usb_power_delivery_revision=3
+   usb_typec_revision=1.3
+--- port0-partner
+   data_role=
+   power_role=
+   port_type=
+   power_operation_mode=
+   preferred_role=
+   vconn_source=
+   usb_power_delivery_revision=
+   usb_typec_revision=
+
+## usb_role
+
+* role=
+
+## udc
+
+a600000.dwc3 state=configured speed=high-speed srp=0
+
+## usb devices
+
+* : 
+
+## usb controller
+
+/sys/devices/platform/soc/a600000.ssusb
+/sys/devices/platform/soc/a600000.ssusb
+/sys/devices/platform/soc/a600000.ssusb/a600000.dwc3
+
+## iio
+
+iio:device0 c440000.qcom,spmi:qcom,pm8150@0:vadc@3100
+iio:device1 c440000.qcom,spmi:qcom,pm8150b@2:vadc@3100
+iio:device2 c440000.qcom,spmi:qcom,pm8150l@4:vadc@3100
+iio:device3 distance
+trigger0 distance-dev3
+
+## hwmon
+
+hwmon0 bms
+hwmon1 battery
+
+## thermal
+
+thermal_zone0 aoss0-usr 33800
+thermal_zone1 cpu-0-0-usr 35400
+thermal_zone10 cpu-1-3-usr 34200
+thermal_zone11 cpu-1-4-usr 37400
+thermal_zone12 cpu-1-5-usr 35800
+thermal_zone13 cpu-1-6-usr 35000
+thermal_zone14 cpu-1-7-usr 34200
+thermal_zone15 gpuss-0-usr 32700
+thermal_zone16 aoss-1-usr 33700
+thermal_zone17 cwlan-usr 32500
+thermal_zone18 video-usr 32900
+thermal_zone19 ddr-usr 32900
+thermal_zone2 cpu-0-1-usr 35800
+thermal_zone20 q6-hvx-usr 33700
+thermal_zone21 camera-usr 32100
+thermal_zone22 cmpss-usr 33300
+thermal_zone23 npu-usr 32900
+thermal_zone24 gpuss-1-usr 32500
+thermal_zone25 gpuss-max-step 32900
+thermal_zone26 apc-0-max-step 35800
+thermal_zone27 apc-1-max-step 35400
+thermal_zone28 pop-mem-step 32900
+thermal_zone29 cpu-0-0-step 35000
+thermal_zone3 cpu-0-2-usr 35800
+thermal_zone30 cpu-0-1-step 35400
+thermal_zone31 cpu-0-2-step 35400
+thermal_zone32 cpu-0-3-step 35000
+thermal_zone33 cpu-1-0-step 35000
+thermal_zone34 cpu-1-1-step 35000
+thermal_zone35 cpu-1-2-step 34600
+thermal_zone36 cpu-1-3-step 34200
+thermal_zone37 cpu-1-4-step 35400
+thermal_zone38 cpu-1-5-step 35000
+thermal_zone39 cpu-1-6-step 34200
+thermal_zone4 cpu-0-3-usr 35000
+thermal_zone40 cpu-1-7-step 34600
+thermal_zone41 cwlan-step 32100
+thermal_zone42 video-step 33300
+thermal_zone43 ddr-step 32500
+thermal_zone44 q6-hvx-step 33300
+thermal_zone45 camera-step 32500
+thermal_zone46 cmpss-step 33300
+thermal_zone47 npu-step 32900
+thermal_zone48 modem1_pa0 -40000
+thermal_zone49 modem1_pa1 -40000
+thermal_zone5 cpuss-0-usr 35800
+thermal_zone50 modem-mmw0-usr 27000
+thermal_zone51 modem-mmw1-usr 27000
+thermal_zone52 modem-mmw2-usr 27000
+thermal_zone53 modem-mmw3-usr 
+thermal_zone54 modem1_xo 34000
+thermal_zone55 modem1_wifi -40000
+thermal_zone56 modem1_quiet -40000
+thermal_zone57 modem-0-usr 27000
+thermal_zone58 modem-1-usr 27000
+thermal_zone59 modem-streamer-usr 27000
+thermal_zone6 cpuss-1-usr 35400
+thermal_zone60 modem-mmw0-mod-usr 
+thermal_zone61 modem-mmw1-mod-usr 
+thermal_zone62 modem-mmw2-mod-usr 
+thermal_zone63 modem-mmw3-mod-usr 
+thermal_zone64 pm8150_tz 35414
+thermal_zone65 pm8150b_tz 34862
+thermal_zone66 pm8150b-ibat-lvl0 -312
+thermal_zone67 pm8150b-ibat-lvl1 -390
+thermal_zone68 pm8150b-vbat-lvl0 4235
+thermal_zone69 pm8150b-vbat-lvl1 4235
+thermal_zone7 cpu-1-0-usr 35000
+thermal_zone70 pm8150b-vbat-lvl2 4235
+thermal_zone71 pm8150b-bcl-lvl0 0
+thermal_zone72 pm8150b-bcl-lvl1 0
+thermal_zone73 pm8150b-bcl-lvl2 0
+thermal_zone74 soc 
+thermal_zone75 pm8150l_tz 35705
+thermal_zone76 pm8150l-vph-lvl0 0
+thermal_zone77 pm8150l-vph-lvl1 0
+thermal_zone78 pm8150l-vph-lvl2 0
+thermal_zone79 pm8150l-bcl-lvl0 -274000
+thermal_zone8 cpu-1-1-usr 35000
+thermal_zone80 pm8150l-bcl-lvl1 -274000
+thermal_zone81 pm8150l-bcl-lvl2 -274000
+thermal_zone82 wireless_therm -40000
+thermal_zone83 conn_therm 30509
+thermal_zone84 xo-therm-adc -40000
+thermal_zone85 cpu_therm 33546
+thermal_zone86 quiet_therm 32748
+thermal_zone87 pa_therm0 32688
+thermal_zone88 pa_therm1 32646
+thermal_zone89 charger_therm0 33346
+thermal_zone9 cpu-1-2-usr 33500
+thermal_zone90 wifi_therm 33530
+thermal_zone91 bms 31200
+thermal_zone92 battery 31200
+
+## cooling devices
+
+cooling_device0 thermal-cpufreq-0
+cooling_device1 thermal-cpufreq-4
+cooling_device10 modem_pa_fr1
+cooling_device11 modem_tj
+cooling_device12 modem_current
+cooling_device13 modem_bcl
+cooling_device14 modem_charge_state
+cooling_device15 modem_skin
+cooling_device16 modem_mmw0
+cooling_device17 modem_mmw1
+cooling_device18 modem_mmw2
+cooling_device19 modem_mmw3
+cooling_device2 thermal-cpufreq-7
+cooling_device20 modem_mmw_skin0
+cooling_device21 modem_mmw_skin1
+cooling_device22 modem_mmw_skin2
+cooling_device23 modem_mmw_skin3
+cooling_device3 npu
+cooling_device4 panel0-backlight
+cooling_device5 brightness0-clone
+cooling_device6 battery
+cooling_device7 cdsp
+cooling_device8 hvx
+cooling_device9 modem_pa
+
+## rtc / watchdog / nvmem
+
+rtc0
+nvmem qfprom0
+nvmem spmi_sdam
+
+## mmc / block
+
+dm-0
+dm-1
+dm-11
+dm-12
+dm-13
+dm-15
+dm-17
+dm-19
+dm-2
+dm-23
+dm-24
+dm-26
+dm-27
+dm-28
+dm-29
+dm-3
+dm-30
+dm-31
+dm-32
+dm-33
+dm-34
+dm-35
+dm-36
+dm-37
+dm-38
+dm-4
+dm-40
+dm-41
+dm-5
+dm-6
+dm-8
+dm-9
+loop0
+loop1
+loop10
+loop11
+loop12
+loop13
+loop14
+loop15
+loop16
+loop17
+loop18
+loop19
+loop2
+loop20
+loop21
+loop22
+loop23
+loop24
+loop25
+loop26
+loop27
+loop28
+loop29
+loop3
+loop30
+loop31
+loop32
+loop33
+loop34
+loop35
+loop36
+loop37
+loop38
+loop39
+loop4
+loop5
+loop6
+loop7
+loop8
+loop9
+sda
+sdb
+sdc
+sdd
+sde
+sdf
+zram0
+
+## cpufreq
+
+policy0 0 1 2 3 max=1804800
+policy4 4 5 6 max=2419200
+policy7 7 max=2841600
+
+## gpu
+
+Adreno650v3
+  56614 1003411
+683000000
+
+## regulators (on)
+
+pm8150a_s3_level 256
+pm8150_l2 3072000
+pm8150_l5 880000
+pm8150_l5_ao 880000
+pm8150_l6 1200000
+pm8150a_s3_level_ao 128
+pm8150_l12 1800000
+pm8150_l12_ao 1800000
+pm8150_l13 3304000
+pm8150_l17 2504000
+pm8150a_s8 1200000
+pm8150a_l1 1800000
+pm8150_s3_level 256
+pm8150a_l10 3200000
+pm8150a_bob 3296000
+pm8150_s3_level_ao 64
+pcie_0_gdsc 
+pcie_2_gdsc 
+usb30_prim_gdsc 
+pm8150_s4 1800000
+hsphy@88e3000 
+pm8150_s5 1824000
+vdd_boost_vreg 
+pm8150_s6 600000

@@ -1,0 +1,16 @@
+[Unit]
+Description=Give gamescope CAP_SYS_NICE for its realtime GPU queue
+# Without it gamescope's compositing waits behind the game on the GPU and
+# misses vblanks (stutter with the performance overlay up). A file copy, an
+# update or a hand install drops file capabilities; this puts them back.
+DefaultDependencies=no
+After=local-fs.target
+Before=graphical.target display-manager.service
+ConditionPathExists=/usr/bin/setcap
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'for g in /usr/bin/gamescope /usr/local/bin/gamescope; do [ -x "$g" ] || continue; getcap "$g" | grep -q cap_sys_nice || setcap cap_sys_nice=eip "$g"; done; exit 0'
+
+[Install]
+WantedBy=graphical.target

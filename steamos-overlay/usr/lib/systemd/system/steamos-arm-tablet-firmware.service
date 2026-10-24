@@ -1,0 +1,17 @@
+[Unit]
+Description=Copy the tablet's firmware out of its own Android partitions
+ConditionFirmware=device-tree-compatible(lenovo,elden)
+DefaultDependencies=no
+After=local-fs.target systemd-udev-settle.service
+# Before the login manager: Game Mode opens the GPU, which loads its signed
+# zap firmware once, at that moment.
+Before=NetworkManager.service bluetooth.service display-manager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/steamos-arm/tablet-firmware-boot
+TimeoutStartSec=5min
+
+[Install]
+WantedBy=multi-user.target

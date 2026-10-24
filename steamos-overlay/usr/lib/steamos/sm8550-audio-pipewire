@@ -1,0 +1,266 @@
+#!/bin/bash
+# Same policy as SteamOS-Ubuntu vendor/audio + sm8550-prefer-speaker-sink:
+#   HDMI/DP connected  → HiFi (DisplayPort, Speaker)
+#   HDMI/DP unplugged  → pro-audio + speaker I2S mixers (this is local speakers)
+# Do not hammer volume (that pops the Game Mode OSD). Watch DP flips only.
+set +e
+export PATH="/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
+
+# SM8650 (KONKR Pocket FIT / AYANEO Pocket S2) uses UCM HiFi via WirePlumber
+# (53-konkr-audio.conf). The pro-audio + MI2S policy below is Odin 2 only and
+# breaks the SM8650-APS2 DSP graph. The REDMAGIC 6 (SM8350) also has its own
+# UCM (Nubia/NX669J) and no Odin 2 codec controls.
+if grep -qaE "REDMAGIC 6" /sys/firmware/devicetree/base/model 2>/dev/null; then
+  exit 0
+fi
+# The Pocket FIT and Pocket S2 route everything through their UCM HiFi
+# profiles (speaker, headphones, DisplayPort), with no vendor I2S path: just
+# switch between their own profiles, no mixers and no pro-audio. WirePlumber
+# alone never left "HiFi (Headphones, Speaker)" for "HiFi (HDMI0, Speaker)"
+# (same priority, both "available"), so a TV or monitor got no sound.
+# The Legion Y700 Gen 3 has its own UCM routes too (and no Odin 2 codec
+# controls): the Odin 2 policy below put it on pro-audio, which played into
+# PCMs no route was set up for, so it was silent.
+UCM_ONLY=0
+if grep -qaE "KONKR Pocket FIT|AYANEO Pocket S2" /sys/firmware/devicetree/base/model 2>/dev/null; then
+  UCM_ONLY=1
+fi
+# Legion Y700 Gen 3: its HiFi profiles never opened (test 6); it plays through
+# pro-audio with routes from steamos-arm-tb321fu-audio.service instead.
+if tr '\0' '\n' </sys/firmware/devicetree/base/compatible 2>/dev/null | grep -qx 'lenovo,tb321fu'; then
+  exit 0
+fi
+
+MODE=once
+case "${1:-}" in
+    --watch|-w) MODE=watch ;;
+esac
+
+log() { echo "sm8550-audio-pipewire: $*" >&2; }
+pactl_ok() { timeout 8 pactl "$@" 2>/dev/null; }
+
+wait_card() {
+  local i
+  for i in $(seq 1 80); do
+    pactl_ok list short cards | grep -qiE 'platform-sound|alsa_card' && return 0
+    sleep 0.25
+  done
+  return 1
+}
+
+card_name() {
+  pactl_ok list short cards | awk 'BEGIN{IGNORECASE=1}
+    /platform-sound/ {print $2; exit}
+    /alsa_card/ {print $2; exit}'
+}
+
+drm_dp() {
+  local f
+  for f in /sys/class/drm/card*-DP-*/status /sys/class/drm/card*-HDMI-A-*/status; do
+    [[ -r "$f" ]] || continue
+    [[ "$(tr -d '[:space:]' <"$f")" == connected ]] && return 0
+  done
+  return 1
+}
+
+restore_speaker_mixers() {
+  /usr/lib/steamos/sm8550-audio-setup >/dev/null 2>&1
+  amixer -c 0 cset name='DISPLAY_PORT_RX_0 Audio Mixer MultiMedia2' 0 >/dev/null 2>&1
+  amixer -c 0 cset name='PRIMARY_MI2S_RX Audio Mixer MultiMedia1' 1 >/dev/null 2>&1
+  amixer -c 0 cset name='RX_CODEC_DMA_RX_0 Audio Mixer MultiMedia2' 1 >/dev/null 2>&1
+}
+
+enable_dp_mixers() {
+  amixer -c 0 cset name='PRIMARY_MI2S_RX Audio Mixer MultiMedia1' 0 >/dev/null 2>&1
+  amixer -c 0 cset name='RX_CODEC_DMA_RX_0 Audio Mixer MultiMedia2' 0 >/dev/null 2>&1
+  amixer -c 0 cset name='DISPLAY_PORT_RX_0 Audio Mixer MultiMedia2' 1 >/dev/null 2>&1
+}
+
+set_default() {
+  local sink="$1" idx
+  [[ -n "${sink:-}" ]] || return 1
+  log "default sink ${sink}"
+  pactl_ok set-default-sink "$sink"
+  pactl_ok set-sink-mute "$sink" 0
+  # First boot: 25% instead of full volume (Steam's boot sound was at 100%).
+  # The pro-audio outputs have no routes, so WirePlumber's
+  # device.routes.default-sink-volume never reaches them. Once per output;
+  # after that the user's own volume stays as it is.
+  # UCM_ONLY outputs have routes: WirePlumber keeps their volume itself.
+  [[ "$UCM_ONLY" == 1 ]] && return 0
+  local mark="${XDG_STATE_HOME:-$HOME/.local/state}/steamos-arm/first-volume-${sink//[^A-Za-z0-9._-]/_}"
+  if restore_volume "$sink"; then
+    : >"$mark" 2>/dev/null
+  elif [[ ! -e "$mark" ]]; then
+    pactl_ok set-sink-volume "$sink" 25% && mkdir -p "${mark%/*}" && : >"$mark" \
+      && log "first boot: ${sink} at 25%"
+  fi
+  while read -r idx; do
+    [[ -n "${idx:-}" ]] || continue
+    pactl_ok move-sink-input "$idx" "$sink"
+  done < <(pactl_ok list short sink-inputs | awk '{print $1}')
+}
+
+# Volume across hard power-offs. The pro-audio outputs have no routes, so
+# WirePlumber only keeps their volume in its stream state, which a power-off
+# seconds after a change can lose (the Thor came back at 100%). Each output's
+# last volume and mute are saved here, synced to disk, and put back when that
+# output becomes the default.
+VOL_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/steamos-arm/volume"
+vol_file() { echo "$VOL_DIR/${1//[^A-Za-z0-9._-]/_}"; }
+restore_volume() {
+  local sink="$1" f vol mute
+  f="$(vol_file "$sink")"
+  [[ -r "$f" ]] || return 1
+  read -r vol mute <"$f"
+  [[ "$vol" =~ ^[0-9]+%$ ]] || return 1
+  pactl_ok set-sink-volume "$sink" "$vol"
+  [[ "$mute" == yes ]] && pactl_ok set-sink-mute "$sink" 1
+  log "restored ${sink} to ${vol}${mute:+ mute=$mute}"
+}
+save_volume() {
+  local sink f vol mute cur
+  sink="$(pactl_ok get-default-sink)"
+  [[ -n "$sink" ]] || return 0
+  vol="$(pactl_ok get-sink-volume "$sink" | grep -oE '[0-9]+%' | head -1)"
+  mute="$(pactl_ok get-sink-mute "$sink" | awk '{print $2}')"
+  [[ -n "$vol" ]] || return 0
+  f="$(vol_file "$sink")"
+  cur="$(cat "$f" 2>/dev/null)"
+  [[ "$cur" == "$vol $mute" ]] && return 0
+  mkdir -p "$VOL_DIR"
+  printf '%s %s\n' "$vol" "$mute" >"$f.tmp" && sync "$f.tmp" 2>/dev/null; mv -f "$f.tmp" "$f"
+}
+
+find_sink() {
+  local pat="$1"
+  pactl_ok list short sinks | awk -v pat="$pat" 'BEGIN{IGNORECASE=1}
+    $2 ~ /loopback/ {next}
+    $2 ~ pat {print $2; exit}'
+}
+
+wait_sink() {
+  local pat="$1" i
+  for i in $(seq 1 16); do
+    find_sink "$pat" && return 0
+    sleep 0.25
+  done
+  return 1
+}
+
+set_profile() {
+  local card="$1" profile="$2"
+  pactl_ok set-card-profile "$card" "$profile"
+}
+
+# The card's own profile with a DisplayPort/HDMI output in it. The names come
+# from each device's UCM config: the Odin 2 has "HiFi (DisplayPort, Speaker)",
+# other devices order or name them differently, and with only the fixed names
+# the Thor never switched (monitor audio needed pavucontrol).
+dp_profile() {
+  local card="$1"
+  pactl_ok list cards | awk -v card="$card" '
+    /^Card #/ {incard=0}
+    $1 == "Name:" && $2 == card {incard=1}
+    incard && /^\tProfiles:/ {inprof=1; next}
+    incard && inprof && /^\t[A-Z]/ {inprof=0}
+    incard && inprof && /(DisplayPort|HDMI)/ && !/available: no/ {
+      sub(/^[ \t]+/, ""); sub(/: .*/, ""); print; exit
+    }'
+}
+
+persist() {
+  local sink="$1" profile="$2"
+  local state="${XDG_STATE_HOME:-$HOME/.local/state}/wireplumber"
+  mkdir -p "$state"
+  printf '[default-nodes]\ndefault.configured.audio.sink=%s\n' "$sink" >"$state/default-nodes"
+  printf '[default-profile]\nalsa_card.platform-sound=%s\n' "$profile" >"$state/default-profile"
+}
+
+# The card's own HiFi profile without DisplayPort/HDMI (the device's local
+# outputs), for UCM_ONLY devices. One with the speakers in it first: where
+# speakers and headphones are separate profiles (Legion Y700 Gen 3), the
+# headphone one can still list as available with nothing in the jack.
+local_profile() {
+  pactl_ok list cards | awk -v c="$1" '
+    /^Card #/ {incard=0}
+    $1=="Name:" && $2==c {incard=1}
+    incard && /^\tProfiles:/ {inprof=1; next}
+    incard && inprof && /^\t[A-Z]/ {inprof=0}
+    incard && inprof && /HiFi/ && !/(DisplayPort|HDMI)/ && !/available: no/ {
+      sub(/^\t+/, ""); sub(/: .*/, "")
+      if ($0 ~ /Speaker/) { print; found=1; exit }
+      if (first == "") first = $0 }
+    END { if (!found && first != "") print first }'
+}
+
+apply_policy() {
+  local card sink
+  card="$(card_name)"
+  [[ -n "$card" ]] || { log "no card"; return 1; }
+  log "card=${card}"
+
+  if drm_dp; then
+    log "DRM DP/HDMI connected → HiFi DisplayPort"
+    local prof
+    prof="$(dp_profile "$card")"
+    log "DisplayPort profile: ${prof:-none found}"
+    { [[ -n "$prof" ]] && set_profile "$card" "$prof"; } \
+      || set_profile "$card" 'HiFi (DisplayPort, Speaker)' \
+      || set_profile "$card" 'HiFi (Speaker, DisplayPort)' \
+      || set_profile "$card" HiFi
+    [[ "$UCM_ONLY" == 1 ]] || enable_dp_mixers
+    wait_sink 'DisplayPort|HDMI' >/dev/null
+    sink="$(find_sink 'DisplayPort|HDMI')"
+    persist "${sink:-alsa_output.platform-sound.HiFi__DisplayPort__sink}" "${prof:-HiFi (DisplayPort, Speaker)}"
+    set_default "$sink"
+  elif [[ "$UCM_ONLY" == 1 ]]; then
+    local prof
+    prof="$(local_profile "$card")"
+    log "no HDMI → ${prof:-HiFi}"
+    set_profile "$card" "${prof:-HiFi}"
+    wait_sink 'Speaker|Headphones' >/dev/null
+    sink="$(find_sink 'Speaker')"
+    [[ -n "$sink" ]] || sink="$(find_sink 'Headphones')"
+    persist "${sink:-alsa_output.platform-sound.HiFi__Speaker__sink}" "${prof:-HiFi}"
+    set_default "$sink" || log "no speaker sink"
+  else
+    log "no HDMI → pro-audio speakers (vendor/audio path)"
+    set_profile "$card" pro-audio
+    restore_speaker_mixers
+    wait_sink 'pro-output-0' >/dev/null
+    restore_speaker_mixers
+    sink="$(find_sink 'pro-output-0')"
+    [[ -n "$sink" ]] || sink="$(find_sink 'pro-output')"
+    persist "${sink:-alsa_output.platform-sound.pro-output-0}" pro-audio
+    set_default "$sink" || log "no speaker sink"
+  fi
+
+  log "sinks=$(pactl_ok list short sinks | tr '\n' ';')"
+  log "default=$(pactl_ok get-default-sink)"
+}
+
+if ! wait_card; then
+  log "pipewire card never appeared"
+  exit 0
+fi
+
+apply_policy
+if [[ "$MODE" != "watch" ]]; then
+  exit 0
+fi
+
+last=off
+drm_dp && last=on
+log "watch last_dp=${last}"
+while true; do
+  sleep 2
+  save_volume
+  cur=off
+  drm_dp && cur=on
+  if [[ "$cur" != "$last" ]]; then
+    log "DP flip ${last} -> ${cur}"
+    apply_policy
+    last="$cur"
+  fi
+done

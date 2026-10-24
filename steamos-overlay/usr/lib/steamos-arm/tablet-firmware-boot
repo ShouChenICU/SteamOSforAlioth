@@ -1,0 +1,48 @@
+#!/bin/bash
+# Boot step for tablets whose firmware comes out of their own Android
+# (steamos-arm-tablet-firmware.service). Copies what is missing, then gives
+# the DSPs, Wi-Fi and Bluetooth another go if they came up without it.
+set -u
+model=""
+grep -aq "lenovo,elden" /sys/firmware/devicetree/base/compatible 2>/dev/null && model=elden
+[[ -n "$model" ]] || exit 0
+manifest=/usr/share/steamos-arm/tablets/${model}-firmware.json
+dest=/var/lib/steamos-arm/firmware/${model}
+[[ -f "$manifest" ]] || exit 0
+before="$(find "$dest" -type f 2>/dev/null | wc -l)"
+/usr/lib/steamos-arm/tablet-firmware "$manifest" "$dest" --also /usr/lib/firmware
+after="$(find "$dest" -type f 2>/dev/null | wc -l)"
+(( after > before )) || exit 0
+# Remote processors that failed to start for want of firmware.
+for rp in /sys/class/remoteproc/remoteproc*; do
+  [[ "$(cat "$rp/state" 2>/dev/null)" == offline ]] && echo start >"$rp/state" 2>/dev/null
+done
+# Wi-Fi and Bluetooth load their firmware when the driver binds. On the first
+# boot the Wi-Fi card probes before the copy and is left unbound; reloading
+# the module didn't bring it back, so remove the card and rescan the bus,
+# which powers it up and probes it again.
+if [[ ! -e /sys/class/net/wlan0 ]]; then
+  for d in /sys/bus/pci/devices/*; do
+    [[ "$(cat "$d/vendor")" == 0x17cb && "$(cat "$d/class")" == 0x0280* && ! -e "$d/driver" ]] || continue
+    echo "tablet-firmware: Wi-Fi ${d##*/} unbound, rescanning"
+    echo 1 >"$d/remove"
+  done
+  echo 1 >/sys/bus/pci/rescan
+  for _ in $(seq 30); do [[ -e /sys/class/net/wlan0 ]] && break; sleep 0.5; done
+  if [[ ! -e /sys/class/net/wlan0 ]]; then
+    modprobe -r ath12k_wifi7 ath12k 2>/dev/null; modprobe ath12k_wifi7 2>/dev/null || modprobe ath12k 2>/dev/null
+  fi
+  [[ -e /sys/class/net/wlan0 ]] && echo "tablet-firmware: Wi-Fi up" || echo "tablet-firmware: Wi-Fi still missing"
+fi
+systemctl try-restart bluetooth.service 2>/dev/null
+# The audio DSP's card came up without its firmware on the first boot and
+# stayed silent until the next one (Gen 4 testers), even after the start
+# above. So the boot that first copies the firmware restarts once, before
+# the login manager, and every later boot has it from the start.
+if (( before == 0 )) && [[ ! -e "$dest/.first-boot-restarted" ]]; then
+  : >"$dest/.first-boot-restarted"
+  sync
+  echo "tablet-firmware: firmware copied for the first time, restarting once"
+  systemctl --no-block reboot
+fi
+exit 0

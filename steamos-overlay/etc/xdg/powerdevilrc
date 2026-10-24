@@ -1,0 +1,23 @@
+[AC][SuspendAndShutdown]
+AutoSuspendAction=0
+
+[Battery][SuspendAndShutdown]
+AutoSuspendAction=0
+
+[LowBattery][SuspendAndShutdown]
+AutoSuspendAction=0
+
+[BatteryManagement]
+BatteryCriticalAction=0
+
+# Plasma turning the panel off when idle: the DSI panels don't come back from
+# that (the screen stays dark while sound and buttons still work), so it only
+# dims. Sleep (power button) still turns the screen off.
+[AC][Display]
+TurnOffDisplayWhenIdle=false
+
+[Battery][Display]
+TurnOffDisplayWhenIdle=false
+
+[LowBattery][Display]
+TurnOffDisplayWhenIdle=false

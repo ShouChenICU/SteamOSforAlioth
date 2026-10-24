@@ -1,0 +1,48 @@
+#!/bin/sh
+# Lenovo Legion Y700 Gen 5: restart into Android.
+#
+# The tablet only ever boots slot A, and its bootloader can't be unlocked
+# (virtual A/B: slot B has no system). So SteamOS runs from boot_a, and boot_b
+# keeps a copy of the owner's own Android boot image, recorded by the
+# installer as /etc/steamos-arm/android-boot.sha256. Going back to Android
+# means copying boot_b into boot_a; Android's "Switch to SteamOS" (a KernelSU
+# module) writes SteamOS back. Same model as github.com/joonhoekim/tb323fu-linux.
+#
+#   gen5-android          check, copy boot_b -> boot_a, verify, restart
+#   gen5-android --check  only the checks
+#
+# Partitions are found by GPT name only, never by number (the same storage
+# unit holds the bootloaders). Nothing is written unless every check passes.
+set -u
+HASH_FILE=/etc/steamos-arm/android-boot.sha256
+check_only=0; [ "${1:-}" = --check ] && check_only=1
+fail() { echo "gen5-android: $*" >&2; exit 1; }
+
+[ "$(id -u)" = 0 ] || exec pkexec "$0" "$@"
+grep -aq "lenovo,baldur" /sys/firmware/devicetree/base/compatible 2>/dev/null || fail "not a Legion Y700 Gen 5"
+want=$(cut -d' ' -f1 "$HASH_FILE" 2>/dev/null)
+[ ${#want} -eq 64 ] || fail "no Android image hash in $HASH_FILE"
+
+part() {  # the one block device whose GPT name is $1
+  n=0; dev=""
+  for u in /sys/class/block/*/uevent; do
+    grep -qx "PARTNAME=$1" "$u" || continue
+    n=$((n + 1)); dev=/dev/$(sed -n 's/^DEVNAME=//p' "$u")
+  done
+  [ "$n" = 1 ] && [ -b "$dev" ] && echo "$dev"
+}
+a=$(part boot_a) || fail "boot_a not found or not unique"
+b=$(part boot_b) || fail "boot_b not found or not unique"
+[ "$(cat /sys/class/block/${a#/dev/}/size)" = "$(cat /sys/class/block/${b#/dev/}/size)" ] || fail "boot_a and boot_b differ in size"
+hb=$(sha256sum "$b" | cut -d' ' -f1)
+[ "$hb" = "$want" ] || fail "boot_b isn't the Android image recorded at install ($hb); nothing written"
+echo "boot_b holds the Android boot image ($want)"
+[ "$check_only" = 1 ] && exit 0
+
+sync
+dd if="$b" of="$a" bs=4M conv=fsync status=none || fail "writing boot_a failed"
+echo 3 > /proc/sys/vm/drop_caches
+ha=$(sha256sum "$a" | cut -d' ' -f1)
+[ "$ha" = "$want" ] || fail "boot_a doesn't verify after the copy ($ha): don't restart, run this again"
+echo "boot_a now holds Android; restarting"
+systemctl reboot

@@ -1,0 +1,69 @@
+#!/bin/sh
+# Don't let a handheld asleep on battery run itself flat. Real sleep still
+# drains a little, and at 0 % it browns out and can boot-loop on the charger.
+#
+# Before sleep (on battery): set an RTC alarm for when the charge could reach
+# the cut-off at the fastest drain seen in sleep so far. If that alarm is what
+# ends the sleep: power off at the cut-off or below, otherwise go back to
+# sleep (with a fresh alarm). A press of the power key wakes it as always.
+# Awake, UPower powers off at 4 % (UPower.conf, set by the image build).
+CUT=8                         # % at which a sleeping handheld powers off
+D=/var/lib/steamos-arm; RATE=$D/sleep-drain-rate   # % per hour, x100
+T=/run/steamos-arm-low-battery
+RTC=/sys/class/rtc/rtc0/wakealarm
+
+battery() {
+  for b in /sys/class/power_supply/*; do
+    [ "$(cat "$b/type" 2>/dev/null)" = Battery ] || continue
+    [ "$(cat "$b/present" 2>/dev/null || echo 1)" = 1 ] || continue
+    echo "$b"; return 0
+  done
+  return 1
+}
+on_battery() { [ "$(cat "$1/status" 2>/dev/null)" = Discharging ]; }
+
+b=$(battery) || exit 0
+[ -w "$RTC" ] || exit 0
+cap=$(cat "$b/capacity" 2>/dev/null) || exit 0
+now=$(date +%s)
+
+case "$1" in
+  pre)
+    rm -f $T
+    echo 0 >"$RTC" 2>/dev/null
+    on_battery "$b" || exit 0
+    # Fastest sleep drain seen, never assumed under 3 %/h.
+    rate=$(cat $RATE 2>/dev/null); [ "${rate:-0}" -ge 300 ] 2>/dev/null || rate=300
+    left=$((cap - CUT)); [ $left -lt 1 ] && left=1
+    secs=$((left * 360000 / rate))
+    [ $secs -lt 900 ] && secs=900
+    [ $secs -gt 86400 ] && secs=86400
+    echo "+$secs" >"$RTC" 2>/dev/null || exit 0
+    echo "$((now + secs)) $now $cap" >$T
+    logger -t low-battery "asleep at ${cap}%: check in $((secs / 60)) min"
+    ;;
+  post)
+    echo 0 >"$RTC" 2>/dev/null
+    [ -f $T ] || exit 0
+    read -r alarm start cap0 <$T; rm -f $T
+    # Learn the drain: a sleep of at least an hour on battery.
+    slept=$((now - start))
+    if [ $slept -ge 3600 ] && [ $cap0 -gt $cap ]; then
+      r=$(( (cap0 - cap) * 360000 / slept ))
+      old=$(cat $RATE 2>/dev/null || echo 0)
+      [ $r -gt "${old:-0}" ] && { mkdir -p $D; echo $r >$RATE; }
+    fi
+    # Woken by anything but our alarm: nothing to do.
+    [ $now -ge $((alarm - 30)) ] || exit 0
+    on_battery "$b" || exit 0
+    if [ "$cap" -le $CUT ]; then
+      logger -t low-battery "woke at ${cap}%: powering off"
+      systemctl poweroff --no-block
+    else
+      logger -t low-battery "woke at ${cap}%: back to sleep"
+      systemd-run --no-block --on-active=3 --unit=steamos-arm-low-battery-sleep \
+        systemctl suspend >/dev/null 2>&1
+    fi
+    ;;
+esac
+exit 0

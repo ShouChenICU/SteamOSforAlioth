@@ -1,0 +1,16 @@
+# Steam's Performance Profile, TDP limit and manual GPU clock are served by
+# steamos-arm-power, which hands them to the device daemon (konkrd / odin3d).
+# The battery charge limit is added in /etc at runtime where the battery has
+# a threshold to set.
+
+[PerformanceProfile1]
+bus_name = "org.steamos_arm.Power"
+object_path = "/org/steamos_arm/Power"
+
+[TdpLimit1]
+bus_name = "org.steamos_arm.Power"
+object_path = "/org/steamos_arm/Power"
+
+[GpuPerformanceLevel1]
+bus_name = "org.steamos_arm.Power"
+object_path = "/org/steamos_arm/Power"

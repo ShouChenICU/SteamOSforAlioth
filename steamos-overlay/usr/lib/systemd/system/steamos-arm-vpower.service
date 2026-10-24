@@ -1,0 +1,13 @@
+[Unit]
+Description=Battery estimates for Steam (/run/vpower)
+# The Frame's deckard-charger (masked) normally fills /run/vpower.
+ConditionPathExists=!/run/deckardcharger
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/lib/steamos-arm/vpower
+Restart=on-failure
+RestartSec=10
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ShadowBlip/InputPlumber/main/rootfs/usr/share/inputplumber/schema/composite_device_v1.json
+# Xiaomi Redmi K40 / POCO F3 (alioth, SM8250-AC) -> virtual Steam Deck
+# controller.
+#
+# This device has no built-in controls at all: no sticks, no shoulders, no
+# face buttons. What it has is a touchscreen, which Deck UI handles natively,
+# and exactly two usable buttons. So unlike every other profile in this tree,
+# this CompositeDevice exists for one job only -- to put the volume keys on a
+# virtual Deck pad as Steam and Quick Access, which Deck UI has no touch-only
+# equivalent for.
+#
+# The two keys live on different input devices on this board (measured in
+# phase 1, /proc/bus/input/devices):
+#   gpio-keys      volume up    (pm8150 gpio6, vol_up_n in the DTS)
+#   pm8941_resin   volume down  (power-key block, reported as KEY_VOLUMEDOWN)
+#
+# pm8941_pwrkey is deliberately NOT a source here. The power key belongs to
+# steamos-powerbuttond (see 99-alioth-powerbuttond.conf); claiming it as a
+# gamepad source would take suspend/resume away from it.
+#
+# Bluetooth gamepads are also deliberately absent. InputPlumber ships its own
+# profiles for Xbox / DualSense / 8BitDo and they already target deck-uhid;
+# a device-specific composite that tried to claim them would override working
+# upstream handling with a worse copy.
+version: 1
+kind: CompositeDevice
+name: Xiaomi Poco F3
+
+matches:
+  - udev:
+      sys_path: /sys/firmware/devicetree/base
+      attributes:
+        - name: model
+          value: Xiaomi Poco F3
+
+single_source: false
+
+source_devices:
+  - group: gamepad
+    evdev:
+      name: gpio-keys
+      handler: event*
+    capability_map_id: alioth_keys
+  - group: gamepad
+    evdev:
+      name: pm8941_resin
+      phys_path: pm8941_resin/input0
+      handler: event*
+    capability_map_id: alioth_keys
+
+options:
+  auto_manage: true
+
+target_devices:
+  - deck-uhid
+  - keyboard

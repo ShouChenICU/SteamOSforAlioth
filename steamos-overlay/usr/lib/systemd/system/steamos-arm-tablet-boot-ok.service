@@ -1,0 +1,12 @@
+[Unit]
+Description=Tell the bootloader this boot worked (Lenovo tablets, A/B slots)
+ConditionFirmware=|device-tree-compatible(lenovo,tb321fu)
+ConditionFirmware=|device-tree-compatible(lenovo,elden)
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/steamos-arm/tablet-boot-ok
+
+[Install]
+WantedBy=multi-user.target

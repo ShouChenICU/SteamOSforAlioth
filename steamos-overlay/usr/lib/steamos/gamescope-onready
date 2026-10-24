@@ -1,0 +1,93 @@
+#!/bin/bash
+# Notify systemd after DISPLAY / GAMESCOPE_WAYLAND_DISPLAY are published.
+# steam.service After=gamescope-session: if we notify first, Steam starts
+# without DISPLAY and exits 1 (health-check then wipes the client).
+#
+# Env matches the working SM8550 session: compositor Wayland via
+# GAMESCOPE_WAYLAND_DISPLAY; Steam Qt/CEF on Xwayland (DISPLAY + xcb).
+# Leave XDG_SESSION_TYPE unset — setting wayland or x11 breaks Steam DM.
+
+set +e
+
+source /usr/lib/steamos/gamescope-env-list
+
+if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+  export GAMESCOPE_WAYLAND_DISPLAY="${GAMESCOPE_WAYLAND_DISPLAY:-$WAYLAND_DISPLAY}"
+fi
+if [[ -z "${GAMESCOPE_WAYLAND_DISPLAY:-}" && -n "${XDG_RUNTIME_DIR:-}" ]]; then
+  if [[ -S "${XDG_RUNTIME_DIR}/gamescope-0" ]]; then
+    export GAMESCOPE_WAYLAND_DISPLAY=gamescope-0
+  fi
+fi
+export DISPLAY="${DISPLAY:-:0}"
+export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-gamescope}"
+export XDG_SESSION_DESKTOP="${XDG_SESSION_DESKTOP:-gamescope}"
+export QT_QPA_PLATFORM=xcb
+export _STEAM_SETENV_MANAGER=1
+unset WAYLAND_DISPLAY || true
+unset XDG_SESSION_TYPE || true
+
+# Hand Steam everything Valve's session does (gamescope-env-list), not just
+# the display: without STEAM_USE_MANGOAPP / MANGOHUD_CONFIGFILE /
+# STEAM_MANGOAPP_* Steam hides the Performance Overlay, and without
+# STEAM_DISPLAY_REFRESH_LIMITS there is no refresh-rate slider.
+# Each name once: systemd rejects the whole import-environment call over a
+# duplicate ("Invalid environment assignments"), and XDG_CURRENT_DESKTOP is
+# in both lists. That one duplicate kept every STEAM_GAMESCOPE_* flag and
+# ENABLE_GAMESCOPE_WSI away from Steam, so its frame limiter did nothing.
+inherit=()
+declare -A seen=()
+for v in DISPLAY GAMESCOPE_WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP \
+         XDG_RUNTIME_DIR QT_QPA_PLATFORM _STEAM_SETENV_MANAGER SteamDeck \
+         STEAM_DISPLAY_REFRESH_LIMITS GAMESCOPE_MANGOAPP_SOCKET_DISABLE \
+         "${gamescope_inherit_vars[@]}"; do
+  [[ "$v" == WAYLAND_DISPLAY || "$v" == XDG_SESSION_TYPE || -n "${seen[$v]:-}" ]] && continue
+  seen[$v]=1
+  if [[ -n "${!v:-}" ]]; then
+    inherit+=("$v")
+  fi
+done
+if ((${#inherit[@]})); then
+  dbus-update-activation-environment "${inherit[@]}" >/dev/null 2>&1 || true
+  if ! systemctl --user import-environment "${inherit[@]}" >/dev/null 2>&1; then
+    # One bad value must not drop the rest: import them one by one.
+    for v in "${inherit[@]}"; do
+      systemctl --user import-environment "$v" >/dev/null 2>&1 || echo >&2 "gamescope-onready: could not hand $v to Steam"
+    done
+  fi
+  # steam.service also reads this file at start (see the session's comment).
+  for v in "${inherit[@]}"; do printf '%s=%s\n' "$v" "${!v}"; done \
+    >>"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/gamescope-steam.env" 2>/dev/null || true
+fi
+systemctl --user set-environment \
+  "DISPLAY=${DISPLAY}" \
+  "GAMESCOPE_WAYLAND_DISPLAY=${GAMESCOPE_WAYLAND_DISPLAY:-gamescope-0}" \
+  "QT_QPA_PLATFORM=xcb" \
+  "XDG_CURRENT_DESKTOP=gamescope" \
+  "_STEAM_SETENV_MANAGER=1" >/dev/null 2>&1 || true
+systemctl --user unset-environment WAYLAND_DISPLAY XDG_SESSION_TYPE >/dev/null 2>&1 || true
+
+xhost + >/dev/null 2>&1 || true
+echo 'Xft.dpi: 144' | xrdb -merge >/dev/null 2>&1 || true
+
+# Game Mode does not always reach user default.target. Start the sink
+# before Steam so splash/UI audio has a speaker route.
+systemctl --user start pipewire.service pipewire-pulse.service wireplumber.service >/dev/null 2>&1 || true
+systemctl --user start sm8550-audio-pipewire.service sm8550-volume-keys.service >/dev/null 2>&1 || true
+
+# gamescope came up: hardware (KMS) rotation, if enabled, works here.
+rm -f "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/gamescope-kms-rotation.tries" 2>/dev/null || true
+
+if [[ -n "${GAMESCOPE_READY_NOTIFY_SOCKET:-}" ]]; then
+  export NOTIFY_SOCKET="$GAMESCOPE_READY_NOTIFY_SOCKET"
+  systemd-notify --ready >/dev/null 2>&1 || true
+fi
+
+systemctl --user start steam.service >/dev/null 2>&1 || true
+
+WATCH_SERVICE="${1:-}"
+if [[ -n "${WATCH_SERVICE}" && "${WATCH_SERVICE}" != "steam.service" ]]; then
+  systemctl --user start "${WATCH_SERVICE}" >/dev/null 2>&1 || true
+fi
+
+exec sleep infinity

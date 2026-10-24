@@ -1,0 +1,131 @@
+From: SteamOS ARM alioth port
+Subject: [PATCH] input: ft8756: retry the id read, and leave the ROM bootloader
+
+With ft8756.poll=50 the point data register answers 161 polls in a row
+with 62 bytes of 0xEF and a correct CRC, including while a finger is
+held on the panel, and IRQ 152 stays at 0. The controller speaks the
+protocol and reports no data, ever.
+
+The driver puts it in that state itself. ft8756_check_chip_id() reads
+register 0xA3 exactly once, 200ms after releasing reset, and on a
+mismatch sends 0x55 0xAA -- the command that drops the chip into its
+ROM bootloader. Nothing takes it out again: with ft8756.ignore_id=1
+probe then continues, requests the interrupt and reports touches from
+a chip that is sitting in ROM. Every register reads 0xEF and the INT
+line never moves.
+
+Two defects, both visible against the vendor driver:
+
+  * The single read is unfair. FocalTech application firmware needs a
+    few hundred milliseconds after reset, which is why the vendor
+    driver polls 0xA3 (fts_wait_tp_to_valid) rather than reading it
+    once. ft8756_wait_tp_valid() does the same, 20 tries 20ms apart,
+    accepting any answer that is not the 0xEF/0xFF the chip gives
+    while it has nothing valid to say -- the same two values
+    ft8756_report() already treats that way in the point data.
+    FT8756_MAX_RETRIES has been defined and unused since the driver
+    was written.
+
+  * Nothing leaves the ROM bootloader. When the id is unknown and
+    ignore_id lets probe continue, reset the chip once more so it
+    starts its application, and log what 0xA3 answers afterwards.
+    That line is the measurement this round is for: if the
+    application comes up, its value is this part's real chip id and
+    the touch path can be judged on its own; if it times out again,
+    the application firmware is not there and the next step is
+    downloading it to PRAM.
+
+This does not change the IRQ trigger type, which is still hardcoded
+to IRQ_TYPE_EDGE_RISING against the DT's EDGE_FALLING. That question
+is next and separate: ft8756.poll reads the point data without the
+interrupt, so it can answer whether the chip reports at all before
+the interrupt wiring is touched.
+
+--- a/drivers/input/touchscreen/ft8756.c
++++ b/drivers/input/touchscreen/ft8756.c
+@@ -27,6 +27,11 @@
+ /* Misc */
+ #define FT8756_NUM_SUPPLIES 3
+ #define FT8756_MAX_RETRIES	3
++/* 20 x 20ms. The vendor driver's fts_wait_tp_to_valid() uses the same. */
++#define FT8756_ID_RETRIES	20
++/* What this controller answers while it has nothing valid to say. */
++#define FT8756_NO_DATA_1	0xEF
++#define FT8756_NO_DATA_2	0xFF
+ 
+ #define DATA_CRC_EN 0x20
+ #define WRITE_CMD   0x00
+@@ -289,6 +294,34 @@
+ 	msleep(200);
+ }
+ 
++/*
++ * Wait for the controller to answer out of its application firmware.
++ * 0xEF and 0xFF are what it returns while it has nothing valid to say --
++ * ft8756_report() reads both that way in the point data as well. The
++ * application takes a few hundred milliseconds to come up after reset,
++ * so a single read 200ms in can land before it; the vendor driver polls
++ * register 0xA3 for the same reason (fts_wait_tp_to_valid).
++ */
++static int ft8756_wait_tp_valid(struct ft8756_ts *ts, u8 *val)
++{
++	u8 v = FT8756_NO_DATA_1;
++	int i, ret;
++
++	for (i = 0; i < FT8756_ID_RETRIES; i++) {
++		ret = regmap_raw_read(ts->regmap, 0xA3, &v, 1);
++		if (!ret && v != FT8756_NO_DATA_1 && v != FT8756_NO_DATA_2) {
++			*val = v;
++			return 0;
++		}
++		msleep(20);
++	}
++
++	dev_warn(ts->dev, "no valid answer from 0xA3 in %d tries, last 0x%02x\n",
++		 FT8756_ID_RETRIES, v);
++	*val = v;
++	return -ETIMEDOUT;
++}
++
+ static int ft8756_check_chip_id(struct ft8756_ts *ts)
+ {
+ 	u16 chip_id = 0;
+@@ -297,7 +330,10 @@
+ 
+ 	ft8756_reset(ts);
+ 
+-	ret = regmap_raw_read(ts->regmap, 0xA3, &buf[0], 1);
++	ret = ft8756_wait_tp_valid(ts, &buf[0]);
++	if (ret)
++		goto fallback;
++
+ 	ret = regmap_raw_read(ts->regmap, 0x9F, &buf[1], 1);
+ 	chip_id = (buf[0] << 8) | buf[1];
+ 	if (chip_id != 0x5652 || ret) {
+@@ -593,9 +629,26 @@
+ skip_regulators:
+ 	ret = ft8756_check_chip_id(ts);
+ 	if (ret) {
++		u8 val;
++
+ 		if (!ft8756_ignore_id)
+ 			return ret;
+ 		dev_warn(dev, "unknown chip id, continuing (ft8756.ignore_id=1)\n");
++
++		/*
++		 * The id check's fallback path sends 0x55 0xAA, which puts
++		 * the controller into its ROM bootloader, and nothing took
++		 * it out again: every register then reads 0xEF and the INT
++		 * line never moves, which is exactly what this phone shows.
++		 * Reset once more so the chip runs its application before
++		 * we start asking it for touches, and log what it answers
++		 * -- that one line says whether the application comes up
++		 * at all.
++		 */
++		ft8756_reset(ts);
++		if (!ft8756_wait_tp_valid(ts, &val))
++			dev_info(dev, "0xA3 reads 0x%02x after a second reset\n",
++				 val);
+ 	}
+ 
+ 	ret = ft8756_input_dev_config(ts);

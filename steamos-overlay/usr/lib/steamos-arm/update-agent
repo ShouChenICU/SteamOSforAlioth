@@ -1,0 +1,290 @@
+#!/usr/bin/env python3
+"""Find and install SteamOS ARM updates, for Steam's own update button.
+
+  update-agent check   newest release for this device newer than the one
+                       installed, as JSON ({} when up to date)
+  update-agent apply   download (or copy) it, check it, and stage it with
+                       konkr-update; it installs on the next restart
+
+Updates come from the project's GitHub releases, a microSD card or USB drive
+(any steamos-arm-<soc>-<version>.sau at the top of a mounted drive), or the
+Downloads folder. A package bigger than GitHub's 2 GB limit comes in numbered
+parts (.sau.001, .sau.002, ...) with one .sau.sha256 for the whole package;
+the parts are joined and checked before staging.
+A release can also carry steamos-arm-<soc>-<version>-full.sau, every file, for
+a system the delta doesn't fit ("this system differs"). The agent falls back
+to it by itself; agents before 1.4 don't see it.
+Packages are signed; konkr-update refuses one whose signature doesn't verify.
+`apply` runs as root (steamos-arm-update.service) and reports its progress in
+/run/steamos-arm-update for steamos-update to pass on to Steam.
+"""
+import glob
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+REPO = "hashtagbasit/SteamOS-ARM-Port"
+KONKR_UPDATE = "/usr/share/konkr-update/konkr-update.py"
+RUN = Path("/run/steamos-arm-update")
+CACHE = Path("/home/.steamos-arm-update")
+NAME = re.compile(r"^steamos-arm-(?P<soc>sm\d{4})-(?P<version>\d+(?:\.\d+)*)(?P<full>-full)?\.sau$")
+PART = re.compile(r"^(?P<base>steamos-arm-(?P<soc>sm\d{4})-(?P<version>\d+(?:\.\d+)*)(?:-full)?\.sau)\.(?P<n>\d{3})$")
+
+
+def vkey(v):
+    return tuple(int(x) for x in re.findall(r"\d+", v or "0"))
+
+
+def split_sets(names, soc):
+    """{package name: [part names in order]} for complete runs .001, .002, ..."""
+    runs = {}
+    for name in names:
+        m = PART.match(name)
+        if m and m["soc"] == soc:
+            runs.setdefault(m["base"], {})[int(m["n"])] = name
+    return {base: [parts[i] for i in sorted(parts)] for base, parts in runs.items()
+            if sorted(parts) == list(range(1, len(parts) + 1))}
+
+
+def status():
+    out = subprocess.run([sys.executable, KONKR_UPDATE, "status"], capture_output=True, text=True)
+    try:
+        return json.loads(out.stdout)
+    except ValueError:
+        return {}
+
+
+def github_candidates(soc):
+    req = urllib.request.Request(f"https://api.github.com/repos/{REPO}/releases?per_page=20",
+                                 headers={"Accept": "application/vnd.github+json",
+                                          "User-Agent": "steamos-arm-update"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        releases = json.load(r)
+    out = []
+    for rel in releases:
+        if rel.get("draft") or rel.get("prerelease"):
+            continue
+        assets = {a["name"]: a for a in rel.get("assets", [])}
+        for name, a in assets.items():
+            m = NAME.match(name)
+            if m and m["soc"] == soc:
+                sha = assets.get(name + ".sha256")
+                out.append({"version": m["version"], "full": bool(m["full"]), "source": "github",
+                            "url": a["browser_download_url"],
+                            "size": a.get("size", 0), "sha256_url": sha["browser_download_url"] if sha else ""})
+        for base, parts in split_sets(assets, soc).items():
+            sha = assets.get(base + ".sha256")
+            if not sha:
+                continue                  # parts can't be checked as a whole: skip them
+            out.append({"version": NAME.match(base)["version"], "full": bool(NAME.match(base)["full"]),
+                        "source": "github",
+                        "parts": [assets[n]["browser_download_url"] for n in parts],
+                        "part_sizes": [assets[n].get("size", 0) for n in parts],
+                        "size": sum(assets[n].get("size", 0) for n in parts),
+                        "sha256_url": sha["browser_download_url"]})
+    return out
+
+
+def media_candidates(soc):
+    out = []
+    # Downloads too: someone running from the microSD card has no second drive
+    # to put it on, and that's where a browser saves it anyway.
+    dirs = glob.glob("/run/media/*/*/") + glob.glob("/run/media/*/") + glob.glob("/home/*/Downloads/")
+    for d in dirs:
+        names = [os.path.basename(p) for p in glob.glob(os.path.join(d, "steamos-arm-*.sau*"))]
+        for name in names:
+            m = NAME.match(name)
+            if m and m["soc"] == soc:
+                path = os.path.join(d, name)
+                out.append({"version": m["version"], "full": bool(m["full"]), "source": "drive", "path": path,
+                            "size": os.path.getsize(path)})
+        for base, parts in split_sets(names, soc).items():
+            if base in names:
+                continue                  # already joined next to its parts
+            paths = [os.path.join(d, n) for n in parts]
+            out.append({"version": NAME.match(base)["version"], "full": bool(NAME.match(base)["full"]),
+                        "source": "drive",
+                        "path": os.path.join(d, base), "parts": paths,
+                        "size": sum(os.path.getsize(p) for p in paths)})
+    return out
+
+
+def newest(installed, soc):
+    found = media_candidates(soc)
+    try:
+        found += github_candidates(soc)
+    except Exception as exc:              # offline: drives still count
+        print(f"update-agent: GitHub: {exc}", file=sys.stderr)
+    newer = [c for c in found if vkey(c["version"]) > vkey(installed)]
+    # a drive wins over a download of the same version, and the smaller delta
+    # over the full package, which stays as the fallback
+    newer.sort(key=lambda c: (vkey(c["version"]), c["source"] == "drive", not c.get("full")))
+    if not newer:
+        return {}
+    best = dict(newer[-1])
+    full = [c for c in newer if c["version"] == best["version"] and c.get("full")]
+    if not best.get("full") and full:
+        best["fallback"] = full[-1]
+    return best
+
+
+def check():
+    st = status()
+    if not st.get("soc") or not st.get("version"):
+        print("{}")                       # images before v1.3 don't record their release
+        return 0
+    print(json.dumps(newest(st["version"], st["soc"])))
+    return 0
+
+
+def progress(pct, phase):
+    RUN.mkdir(parents=True, exist_ok=True)
+    tmp = RUN / ".progress"
+    tmp.write_text(json.dumps({"percent": round(pct, 1), "phase": phase}))
+    os.replace(tmp, RUN / "progress")
+
+
+def result(code, message):
+    RUN.mkdir(parents=True, exist_ok=True)
+    (RUN / "result").write_text(json.dumps({"code": code, "message": message}))
+    print(f"update-agent: {message}", file=sys.stderr)
+    return code
+
+
+def fetch(url, fh, size, start, span):
+    """Append url to fh, resuming where a dropped connection left off."""
+    base, last = fh.tell(), 0.0
+    for attempt in range(6):
+        got = fh.tell() - base
+        if size and got >= size:
+            return
+        headers = {"User-Agent": "steamos-arm-update"}
+        if got:
+            headers["Range"] = f"bytes={got}-"
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=60) as r:
+                if got and r.status != 206:   # no resume support: start this part over
+                    fh.seek(base); fh.truncate()
+                total = size or int(r.headers.get("Content-Length") or 0)
+                while chunk := r.read(1 << 20):
+                    fh.write(chunk)
+                    if total and time.monotonic() - last > 0.5:
+                        progress(start + span * (fh.tell() - base) / total, "download")
+                        last = time.monotonic()
+            if not size or fh.tell() - base >= size:
+                return
+        except OSError as exc:
+            if attempt == 5:
+                raise
+            print(f"update-agent: download interrupted ({exc}), resuming", file=sys.stderr)
+            time.sleep(3 * (attempt + 1))
+    raise OSError("download kept stopping before the end")
+
+
+def join(paths, fh):
+    for p in paths:
+        with open(p, "rb") as src:
+            shutil.copyfileobj(src, fh, 4 << 20)
+
+
+def download(cand, pkg, start, span):
+    """Copy or download cand to pkg and check it; returns an error or ''."""
+    if cand["source"] == "drive":
+        if cand.get("parts"):
+            with open(pkg, "wb") as fh:
+                join(cand["parts"], fh)
+        else:
+            shutil.copyfile(cand["path"], pkg)
+        sha_file = Path(cand["path"] + ".sha256")
+        want = sha_file.read_text().split()[0] if sha_file.exists() else ""
+        if cand.get("parts") and not want:
+            return "split update without its .sha256 file"
+    else:
+        with open(pkg, "wb") as fh:
+            urls = cand.get("parts") or [cand["url"]]
+            sizes = cand.get("part_sizes") or [cand.get("size", 0)]
+            for i, (url, size) in enumerate(zip(urls, sizes)):
+                fetch(url, fh, size, start + span * i / len(urls), span / len(urls))
+        if cand.get("parts") and not cand.get("sha256_url"):
+            return "split update without its .sha256 file"
+        want = ""
+        if cand.get("sha256_url"):
+            with urllib.request.urlopen(cand["sha256_url"], timeout=30) as r:
+                want = r.read().decode().split()[0]
+    progress(start + span + 2, "verify")
+    if want:
+        h = hashlib.sha256()
+        with open(pkg, "rb") as fh:
+            for chunk in iter(lambda: fh.read(4 << 20), b""):
+                h.update(chunk)
+        if h.hexdigest() != want:
+            return "the download is damaged (checksum mismatch)"
+    return ""
+
+
+def stage(pkg):
+    """konkr-update checks the signature, the device and the space, and backs
+    up what it changes before anything is touched. Returns an error or ''."""
+    out = subprocess.run([sys.executable, KONKR_UPDATE, "stage", str(pkg)], capture_output=True, text=True)
+    if out.returncode == 0:
+        return ""
+    text = (out.stderr or out.stdout).strip()
+    return text.splitlines()[-1] if text else "staging failed"
+
+
+def apply():
+    for f in ("progress", "result"):
+        (RUN / f).unlink(missing_ok=True)
+    st = status()
+    if st.get("staged"):
+        return result(8, "an update is already staged: restart to install it")
+    cand = newest(st.get("version", ""), st.get("soc", ""))
+    if not cand:
+        return result(7, "no update available")
+    CACHE.mkdir(mode=0o700, exist_ok=True)
+    pkg = CACHE / f"steamos-arm-{st['soc']}-{cand['version']}.sau"
+    fallback = cand.get("fallback")
+    progress(0, "download")
+    try:
+        err = download(cand, pkg, 0, 35 if fallback else 70)
+        if err:
+            return result(1, err)
+        progress(40 if fallback else 75, "stage")
+        err = stage(pkg)
+        if err and "differs" in err and fallback:
+            # files changed on this system that the delta has no contents for:
+            # the full package has all of them
+            print(f"update-agent: {err}; trying the full package", file=sys.stderr)
+            pkg.unlink(missing_ok=True)
+            progress(42, "download")
+            err = download(fallback, pkg, 42, 40)
+            if not err:
+                progress(85, "stage")
+                err = stage(pkg)
+        if err:
+            return result(1, err)
+        progress(100, "done")
+        return result(0, f"update {cand['version']} staged: restart to install it")
+    except Exception as exc:
+        return result(1, f"update failed: {exc}")
+    finally:
+        pkg.unlink(missing_ok=True)
+
+
+if __name__ == "__main__":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+    if cmd == "check":
+        sys.exit(check())
+    if cmd == "apply":
+        if os.geteuid() != 0:
+            sys.exit(result(1, "apply needs root (steamos-arm-update.service)"))
+        sys.exit(apply())
+    print(__doc__, file=sys.stderr)
+    sys.exit(2)

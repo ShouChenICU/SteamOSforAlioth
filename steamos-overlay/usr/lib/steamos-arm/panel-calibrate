@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""Tune the panel's frame length so it really refreshes at 60 / 120 Hz.
+
+Panels leave the factory a little off (an RP6 can run at 60.4 Hz, an Odin 3
+at 119.6), which shows up as a frame limiter that stutters now and then.
+The RP6 and Odin 3 panel drivers expose their frame length as frame_len_60
+and frame_len_120; this measures the real refresh rate from the display's
+vblanks and moves the frame length until it sits just above the target.
+
+  panel-calibrate          calibrate the rate the screen runs at now (as root)
+  panel-calibrate apply    write the saved values back (at boot)
+  panel-calibrate show     print the panel's values and the saved ones
+
+Calibrate once per rate: set the screen to 60 Hz, run it, then 120 Hz and run
+it again. The values are kept in /etc/steamos-arm/panel-calibration.json.
+"""
+import fcntl
+import glob
+import json
+import os
+import struct
+import sys
+import time
+
+SAVED = "/etc/steamos-arm/panel-calibration.json"
+DRM_IOCTL_WAIT_VBLANK = 0xC018643A
+STEP = 4
+
+
+def panel():
+    found = glob.glob("/sys/bus/mipi-dsi/devices/*/frame_len_60")
+    return os.path.dirname(found[0]) if found else None
+
+
+def load():
+    try:
+        with open(SAVED, encoding="utf-8") as fh:
+            return {k: int(v) for k, v in json.load(fh).items()}
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+def save(values):
+    os.makedirs(os.path.dirname(SAVED), exist_ok=True)
+    with open(SAVED + ".tmp", "w", encoding="utf-8") as fh:
+        json.dump(values, fh)
+    os.replace(SAVED + ".tmp", SAVED)
+
+
+def read_attr(path):
+    with open(path, encoding="ascii") as fh:
+        return int(fh.read())
+
+
+def write_attr(path, value):
+    with open(path, "w", encoding="ascii") as fh:
+        fh.write(str(value))
+
+
+def wait_vblank(fd, pipe):
+    # drm_wait_vblank: DRM_VBLANK_RELATIVE with the pipe in the high CRTC
+    # bits, one vblank from now
+    buf = bytearray(struct.pack("IIqq", 0x1 | ((pipe << 1) & 0x3e), 1, 0, 0))
+    fcntl.ioctl(fd, DRM_IOCTL_WAIT_VBLANK, buf)
+    _, _, sec, usec = struct.unpack("IIqq", buf)
+    return sec + usec / 1e6
+
+
+def display():
+    """The card and CRTC pipe of the built-in panel (the first one that has vblanks)."""
+    for card in sorted(glob.glob("/dev/dri/card*")):
+        fd = os.open(card, os.O_RDWR)
+        for pipe in range(4):
+            try:
+                wait_vblank(fd, pipe)
+                return fd, pipe
+            except OSError:
+                pass
+        os.close(fd)
+    sys.exit("panel-calibrate: no display is running")
+
+
+def measure(fd, pipe, seconds=1.0):
+    stamps = [wait_vblank(fd, pipe)]
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        stamps.append(wait_vblank(fd, pipe))
+    return (len(stamps) - 1) / (stamps[-1] - stamps[0])
+
+
+def calibrate():
+    if os.geteuid() != 0:
+        sys.exit("panel-calibrate: run it as root (sudo)")
+    dev = panel()
+    if not dev:
+        sys.exit("panel-calibrate: this panel can't be calibrated")
+    fd, pipe = display()
+    hz = measure(fd, pipe)
+    target = 120 if hz > 90 else 60
+    attr = f"{dev}/frame_len_{target}"
+    start = read_attr(attr)
+    # A longer frame means a lower rate. Aim for just above the target, so a
+    # limiter at the target never has to skip a refresh.
+    tolerance = 0.05 if target == 60 else 0.2
+    value = start
+    print(f"{target} Hz mode: measures {hz:.3f} Hz, frame length {start}")
+    try:
+        for _ in range(40):
+            delta = measure(fd, pipe) - target
+            if 0 <= delta <= tolerance:
+                break
+            step = STEP if abs(delta) < 2 * tolerance else 2 * STEP
+            value += step if delta > 0 else -step
+            write_attr(attr, value)
+            time.sleep(0.5)
+        else:
+            raise OSError("no stable value")
+        hz = measure(fd, pipe, 3.0)
+        if not 0 <= hz - target <= tolerance * 2:
+            raise OSError(f"unstable at {hz:.3f} Hz")
+    except OSError as exc:
+        write_attr(attr, start)
+        sys.exit(f"panel-calibrate: {exc}, kept {start}")
+    values = load()
+    values[f"frame_len_{target}"] = value
+    save(values)
+    print(f"{target} Hz mode: now {hz:.3f} Hz, frame length {value} (saved)")
+
+
+def apply():
+    dev = panel()
+    if not dev:
+        return
+    for key, value in load().items():
+        try:
+            write_attr(f"{dev}/{key}", value)
+        except OSError as exc:
+            print(f"panel-calibrate: {key}={value}: {exc}", file=sys.stderr)
+
+
+def show():
+    dev = panel()
+    if not dev:
+        sys.exit("panel-calibrate: this panel can't be calibrated")
+    for rate in (60, 120):
+        print(f"frame_len_{rate}: {read_attr(f'{dev}/frame_len_{rate}')}")
+    print(f"saved: {load() or 'nothing'}")
+
+
+if __name__ == "__main__":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "run"
+    {"run": calibrate, "apply": apply, "show": show}.get(cmd, lambda: sys.exit(__doc__))()

@@ -1,0 +1,21 @@
+[Unit]
+Description=alioth first boot: grow rootfs to the partition, mark A/B successful
+# 哨兵不在就根本不启动这个 unit。脚本自己也会再查一次 —— 两道都要，
+# 因为 ConditionPathExists 只在启动时算一次。
+ConditionPathExists=/var/lib/alioth-firstboot-pending
+# 要等根文件系统可写，而且要在 Game Mode 起来之前做完：扩展几 GB 到
+# 106 GiB 只要几秒，但 Steam 在它完成之前看到的是一个几乎满的磁盘。
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/steamos-arm/alioth-firstboot
+# 刻意不设 SuccessExitStatus：失败就该在 systemctl --failed 里看得见。
+# 它拦不住开机 —— WantedBy 是弱依赖，失败不会阻塞 sysinit.target，而哨兵
+# 还在，下次开机自然重试。
+
+[Install]
+WantedBy=sysinit.target

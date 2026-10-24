@@ -1,0 +1,303 @@
+#!/bin/bash
+# Handheld SM8550 launcher. Do not pass -deckard / -vrgamepadui: those switch
+# the client beta to the internal Steam Frame build and wait on SteamVR.
+
+set -euo pipefail
+STEAMROOT="$( cd -- "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+IS_SIDELOAD=0
+SIDELOADED_STEAMROOT="${HOME}/devkit-game/steam"
+if [ "${STEAMROOT}" == "${SIDELOADED_STEAMROOT}" ]; then
+  echo "Running sideloaded Steam client in ${STEAMROOT}"
+  IS_SIDELOAD=1
+  export SUPPRESS_STEAM_OVERLAY=1
+fi
+
+STEAM_RT_ARM64=steamrtarm64
+STEAM_SDK_ARM64=linuxarm64
+
+if [[ ! -d "${STEAMROOT}/${STEAM_RT_ARM64}" ]]; then
+  if [[ -d "${STEAMROOT}/linuxarm64" ]]; then
+    STEAM_RT_ARM64="linuxarm64"
+  fi
+fi
+
+if [[ ! -d "${STEAMROOT}/${STEAM_SDK_ARM64}" ]]; then
+  if [[ -d "${STEAMROOT}/steamrtarm64" ]]; then
+    STEAM_SDK_ARM64="steamrtarm64"
+  fi
+fi
+
+export LD_LIBRARY_PATH="${STEAMROOT}/${STEAM_RT_ARM64}"
+export SteamDeck="${SteamDeck:-1}"
+export QT_QPA_PLATFORM=xcb
+export _STEAM_SETENV_MANAGER=1
+export DISPLAY="${DISPLAY:-:0}"
+if [[ -z "${GAMESCOPE_WAYLAND_DISPLAY:-}" ]]; then
+  if [[ -S "${XDG_RUNTIME_DIR:-/run/user/1000}/gamescope-0" ]]; then
+    export GAMESCOPE_WAYLAND_DISPLAY=gamescope-0
+  fi
+fi
+export GAMESCOPE_WAYLAND_DISPLAY="${GAMESCOPE_WAYLAND_DISPLAY:-gamescope-0}"
+# Remote Play's V4L2 decoder: reset the decoder after its last buffer, which
+# the Qualcomm decoders need before the next stream starts.
+export STEAMLINK_V4L2_RESET_AFTER_LAST_BUF=1
+unset WAYLAND_DISPLAY XDG_SESSION_TYPE || true
+for _i in $(seq 1 50); do
+  [[ -S /tmp/.X11-unix/X0 ]] && break
+  sleep 0.1
+done
+# Force-off leaves .crash; Steam then opens -child-update-ui (the wheel)
+# and logs "Looks like steam didn't shutdown cleanly".
+rm -f "${STEAMROOT}/.crash" "${STEAMROOT}/steam.pid" 2>/dev/null || true
+# Client self-updates are blocked by default (x86 CDN builds break the handheld).
+# Opt in with `touch ${STEAMROOT}/.allow-client-updates` (or
+# STEAM_ALLOW_CLIENT_UPDATES=1) to follow the selected client beta channel,
+# e.g. the arm64 build shared with the Steam Frame.
+ALLOW_CLIENT_UPDATES=0
+if [[ -e "${STEAMROOT}/.allow-client-updates" || "${STEAM_ALLOW_CLIENT_UPDATES:-0}" == "1" ]]; then
+  ALLOW_CLIENT_UPDATES=1
+  rm -f "${STEAMROOT}/steam.cfg" "${STEAMROOT}/${STEAM_RT_ARM64}/steam.cfg" 2>/dev/null || true
+else
+  printf '%s\n' \
+    'BootStrapperInhibitAll=enable' \
+    'BootStrapperForceSelfUpdate=disable' \
+    'BootStrapperInhibitClientChecksum=enable' \
+    'BootStrapperInhibitBootstrapperChecksum=enable' \
+    'BootStrapperInhibitUpdateOnLaunch=enable' \
+    >"${STEAMROOT}/steam.cfg" 2>/dev/null || true
+fi
+# Version 0 / "no bootstrapper found" keeps Gamepad UI on the update spinner.
+if [[ ! -s "${STEAMROOT}/steam.inf" ]]; then
+  ver=1788652215
+  [[ -r "${STEAMROOT}/.odin-handheld-client" ]] \
+    && ver="$(awk 'NR==2 && /^[0-9]+$/{print; exit}' "${STEAMROOT}/.odin-handheld-client")"
+  printf 'ClientVersion=%s\n' "${ver:-1788652215}" >"${STEAMROOT}/steam.inf"
+  cp -f "${STEAMROOT}/steam.inf" "${STEAMROOT}/steamrtarm64/steam.inf" 2>/dev/null || true
+fi
+# Force-off leaves Chrome singleton locks + a half-written htmlcache.
+# Then index.html paints and never pulls libraries.js (no Gamepad window).
+htmlcache="${STEAMROOT}/config/htmlcache"
+is_odin3=0
+if grep -aqE "ayn,odin3|qcom,sm8750" /sys/firmware/devicetree/base/compatible 2>/dev/null; then
+  is_odin3=1
+fi
+if [[ "$is_odin3" -eq 1 ]]; then
+  ram_cache="/tmp/steam-htmlcache-${USER:-steamos}"
+  mkdir -p "${ram_cache}" 2>/dev/null || true
+  if [[ ! -L "${htmlcache}" ]]; then
+    rm -rf "${htmlcache}" 2>/dev/null || true
+    ln -sfn "${ram_cache}" "${htmlcache}" 2>/dev/null || true
+  fi
+
+  # Odin 3 baseline: ensure config.vdf has controller mapping and UI scale factor
+  cfg="${STEAMROOT}/config/config.vdf"
+  if [[ ! -f "$cfg" ]]; then
+    mkdir -p "${STEAMROOT}/config"
+    cat <<'VDF' >"$cfg"
+"InstallConfigStore"
+{
+	"SDL_GamepadBind"		"03000000202000000130000001000000,AYN Odin3 Gamepad,crc:95bb,platform:Linux,a:b0,b:b1,x:b3,y:b2,dpleft:b13,dpright:b14,dpup:b11,dpdown:b12,leftx:a0,lefty:a1,leftstick:b9,rightx:a3,righty:a4,rightstick:b10,leftshoulder:b4,lefttrigger:a2,rightshoulder:b5,righttrigger:a5,back:b6,start:b7,guide:b8,misc1:b15,steam:2,"
+	"UI"
+	{
+		"display"
+		{
+			"Current"
+			{
+				"MinScaleFactor"		"0.711512446403503418"
+				"MaxScaleFactor"		"3.40971922874450684"
+				"IsExternalDisplay"		"1"
+				"name"		"External: gamescope 6\"|||Windowed"
+				"AutoScaleFactor"		"2.80762958526611328"
+				"ScaleFactor"		"2.38840627670288086"
+			}
+			"External: gamescope 6\"|||Windowed"
+			{
+				"ScaleFactor"		"2.38840627670288086"
+			}
+		}
+	}
+	"SteamOS"
+	{
+		"WifiForceWPASupplicant"		"1"
+	}
+}
+VDF
+  elif ! grep -q 'External: gamescope 6' "$cfg" 2>/dev/null; then
+    python3 -c '
+import sys
+p = sys.argv[1]
+try:
+    with open(p, "r", encoding="utf-8", errors="ignore") as f:
+        c = f.read()
+    if "\"UI\"" not in c and "External: gamescope 6" not in c:
+        block = """\t"UI"
+\t{
+\t\t"display"
+\t\t{
+\t\t\t"Current"
+\t\t\t{
+\t\t\t\t"MinScaleFactor"\t\t"0.711512446403503418"
+\t\t\t\t"MaxScaleFactor"\t\t"3.40971922874450684"
+\t\t\t\t"IsExternalDisplay"\t\t"1"
+\t\t\t\t"name"\t\t"External: gamescope 6\\\"|||Windowed"
+\t\t\t\t"AutoScaleFactor"\t\t"2.80762958526611328"
+\t\t\t\t"ScaleFactor"\t\t"2.38840627670288086"
+\t\t\t}
+\t\t\t"External: gamescope 6\\\"|||Windowed"
+\t\t\t{
+\t\t\t\t"ScaleFactor"\t\t"2.38840627670288086"
+\t\t\t}
+\t\t}
+\t}\n"""
+        idx = c.rfind("}")
+        if idx != -1:
+            c = c[:idx] + block + c[idx:]
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(c)
+except Exception:
+    pass
+' "$cfg" 2>/dev/null || true
+  fi
+fi
+if [[ -L "${htmlcache}/SingletonLock" || -e "${htmlcache}/SingletonLock" ]]; then
+  rm -f "${htmlcache}/SingletonLock" "${htmlcache}/SingletonCookie" \
+        "${htmlcache}/SingletonSocket" 2>/dev/null || true
+fi
+# ResourceHandler serves on-disk steamui/ when present. 0-byte stubs or a
+# missing tree produce a blank steamloopback page (no libraries.js).
+# The Frame tarball client never finishes the library. Prefer the handheld
+# ARM client extracted by apply-overlays / install-steam-client-arm64.
+steam_tar=/usr/lib/steam/steam.tar.zst
+if [[ ! -e "${STEAMROOT}/.odin-handheld-client" && -f "$steam_tar" ]]; then
+  if [[ ! -s "${STEAMROOT}/steamui/index.html" ]] \
+     || ! grep -q 'libraries~' "${STEAMROOT}/steamui/index.html" 2>/dev/null; then
+    rm -rf "${STEAMROOT}/steamui"
+    tar --zstd -xf "$steam_tar" -C "${STEAMROOT}" ./steamui 2>/dev/null || true
+  fi
+fi
+if [[ -x /usr/lib/steamos/sm8550-patch-steamui ]]; then
+  /usr/lib/steamos/sm8550-patch-steamui "${STEAMROOT}/steamui" >/dev/null 2>&1 || true
+fi
+# Frame tarball leaves linuxarm64/steamclient.so as 0 bytes. webhelper
+# dlmopens that path and Gamepad UI never creates the BPM window.
+if [[ -d "${STEAMROOT}/linuxarm64" && -d "${STEAMROOT}/steamrtarm64" ]]; then
+  for _lib in steamclient.so crashhandler.so steam-launch-wrapper; do
+    _src="${STEAMROOT}/steamrtarm64/${_lib}"
+    _dst="${STEAMROOT}/linuxarm64/${_lib}"
+    if [[ -s "$_src" && ! -s "$_dst" ]]; then
+      cp -f "$_src" "$_dst" 2>/dev/null || true
+    fi
+  done
+  unset _lib _src _dst
+fi
+# PyroWave decoding for Remote Play: the arm64 streaming_client has no PyroWave decoder, the
+# x86 one in steamrt64 (client beta) does. Opt in with `touch ${STEAMROOT}/.pyrowave-box64`
+# to run the x86 client under box64. Applied on every launch because client updates replace
+# streaming_client; the real arm64 binary is kept as streaming_client.arm64.
+# libSDL3_ttf must be emulated too: box64's native wrapper calls the x86 SDL3 IO callbacks
+# directly and dies with SIGILL when the client draws text (e.g. the on-screen keyboard).
+_sc="${STEAMROOT}/${STEAM_RT_ARM64}/streaming_client"
+_sc_x86="${STEAMROOT}/steamrt64/streaming_client"
+_sc_is_elf() { [[ "$(head -c 4 "$1" 2>/dev/null | tail -c 3)" == ELF ]]; }
+if [[ -e "${STEAMROOT}/.pyrowave-box64" && -x "${_sc_x86}" ]] && command -v box64 >/dev/null; then
+  if [[ -f "${_sc}" ]] && _sc_is_elf "${_sc}"; then
+    mv -f "${_sc}" "${_sc}.arm64" 2>/dev/null || true
+  fi
+  if ! grep -q PYROWAVE_BOX64_WRAPPER "${_sc}" 2>/dev/null; then
+    cat >"${_sc}" <<EOF || true
+#!/bin/sh
+# PYROWAVE_BOX64_WRAPPER (written by RUNSTEAM.sh; remove ${STEAMROOT}/.pyrowave-box64 to undo)
+S='${STEAMROOT}'
+exec env BOX64_EMULATED_LIBS=libSDL3_ttf.so.0 \\
+  BOX64_LD_LIBRARY_PATH="\$S/steamrt64:\$S/ubuntu12_64:\$S/linux64" \\
+  box64 "\$S/steamrt64/streaming_client" "\$@" >"\$S/logs/streaming_client_box64.log" 2>&1
+EOF
+    chmod 0755 "${_sc}" 2>/dev/null || true
+  fi
+elif [[ -f "${_sc}.arm64" ]] && ! _sc_is_elf "${_sc}"; then
+  mv -f "${_sc}.arm64" "${_sc}" 2>/dev/null || true
+fi
+unset _sc _sc_x86
+echo "RUNSTEAM: DISPLAY=${DISPLAY} GAMESCOPE_WAYLAND_DISPLAY=${GAMESCOPE_WAYLAND_DISPLAY} QT_QPA_PLATFORM=${QT_QPA_PLATFORM}"
+
+if [[ "$is_odin3" -eq 1 && -f /etc/sdl2/qcom-gamecontrollerdb.txt ]]; then
+  export SDL_GAMECONTROLLERCONFIG_FILE=/etc/sdl2/qcom-gamecontrollerdb.txt
+  export SDL_GAMECONTROLLERCONFIG="$(grep -v '^#' /etc/sdl2/qcom-gamecontrollerdb.txt | tr '\n' ',' 2>/dev/null || true)"
+fi
+
+function ln_for_real()
+{
+  if [[ -d "${2}" ]]; then
+    rm -rf "${2}"
+  fi
+  ln -sTfn "${1}" "${2}"
+}
+
+mkdir -p ~/.steam
+if [[ "${IS_SIDELOAD}" == "0" ]]; then
+  ln_for_real "${STEAMROOT}" ~/.steam/steam
+else
+  ln_for_real ~/.local/share/Steam ~/.steam/steam
+fi
+ln_for_real "${STEAMROOT}" ~/.steam/root
+ln_for_real "${STEAMROOT}/linux32" ~/.steam/sdk32
+ln_for_real "${STEAMROOT}/linux64" ~/.steam/sdk64
+ln_for_real "${STEAMROOT}/${STEAM_SDK_ARM64}" ~/.steam/sdkarm64
+ln_for_real "${STEAMROOT}/${STEAM_RT_ARM64}" ~/.steam/binarm64
+ln_for_real "${STEAMROOT}/ubuntu12_32" ~/.steam/bin32
+ln_for_real "${STEAMROOT}/ubuntu12_64" ~/.steam/bin64
+
+export STEAM_RUNTIME="$STEAMROOT/ubuntu12_32/steam-runtime"
+if [ -f $STEAMROOT/steamapps/common/FEX-Emu/fex-compat-tool ]; then
+  export STEAM_RUNTIME_LIBRARY_PATH=$($STEAMROOT/steamapps/common/FEX-Emu/fex-compat-tool run -- $STEAMROOT/ubuntu12_32/steam-runtime/run.sh --print-steam-runtime-library-paths)
+  echo "setting STEAM_RUNTIME_LIBRARY_PATH via FEX-Emu: ${STEAM_RUNTIME_LIBRARY_PATH}"
+else
+  export STEAM_RUNTIME_LIBRARY_PATH=$STEAM_RUNTIME/pinned_libs_32:$STEAM_RUNTIME/pinned_libs_64:/usr/local/lib/i386-linux-gnu:/lib/i386-linux-gnu:/usr/local/lib:/usr/local/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu:/lib:$STEAM_RUNTIME/lib/i386-linux-gnu:$STEAM_RUNTIME/usr/lib/i386-linux-gnu:$STEAM_RUNTIME/lib/x86_64-linux-gnu:$STEAM_RUNTIME/usr/lib/x86_64-linux-gnu:$STEAM_RUNTIME/lib:$STEAM_RUNTIME/usr/lib
+  echo "setting STEAM_RUNTIME_LIBRARY_PATH copied from legacy LDLP: ${STEAM_RUNTIME_LIBRARY_PATH}"
+fi
+
+if [[ "${IS_SIDELOAD}" == "0" ]]; then
+  STEAM_ARGS=(
+    -cef-enable-debugging
+    -gamepadui
+    -steamos3
+    -steampal
+    -steamdeck
+    -noverifyfiles
+    -noshaders
+    -inhibitbootstrap
+    -nobootstrapperupdate
+    ${STEAM_EXTRA_ARGS:-}
+  )
+  if [[ "${ALLOW_CLIENT_UPDATES}" == "1" ]]; then
+    _kept=()
+    for _a in "${STEAM_ARGS[@]}"; do
+      [[ "$_a" == -inhibitbootstrap || "$_a" == -nobootstrapperupdate ]] || _kept+=("$_a")
+    done
+    STEAM_ARGS=("${_kept[@]}")
+  fi
+else
+  SIDELOADED_CMDLINE_ARGS_FILE="${HOME}/devkit-game/steamdeckard-argv.json"
+  read -ra STEAM_ARGS <<< "$(jq -r '.[0]' "${SIDELOADED_CMDLINE_ARGS_FILE}")"
+fi
+
+STEAM_COMMAND=(
+    "${STEAMROOT}/${STEAM_RT_ARM64}/steam" "${STEAM_ARGS[@]}"
+)
+
+if [[ "${IS_SIDELOAD}" == "1" ]]; then
+  SIDELOADED_SETTINGS_FILE="${HOME}/devkit-game/steamdeckard-settings.json"
+  if [[ "$(jq -r '.gdbserver // "0"' "${SIDELOADED_SETTINGS_FILE}")" == "1" ]]; then
+    STEAM_COMMAND=(
+      gdbserver 127.0.0.1:2345 "${STEAM_COMMAND[@]}"
+    )
+  fi
+fi
+
+cd ${STEAMROOT}
+mkdir -p "${HOME}/.local/share/Steam/logs"
+# Steam refuses LD_PRELOAD (unsafe unsetenv) and aborts its own startup UI.
+unset LD_PRELOAD || true
+
+exec "${STEAM_COMMAND[@]}" >"${HOME}/.local/share/Steam/logs/steam_output.log" 2>&1

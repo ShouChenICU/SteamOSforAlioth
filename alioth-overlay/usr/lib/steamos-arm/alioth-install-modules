@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# 把一棵 /usr/lib/modules/<版本> 装进设备，在**设备自己身上**。
+#
+# 用法: alioth-install-modules <modules.tar.gz> [--yes]
+#
+# 为什么要有它：boot 镜像里只有内核和设备树，模块在 userdata 上的
+# /usr/lib/modules 里。alioth-write-boot 换掉前者不动后者，而这个移植里
+# 一半的东西是 `=m`（snd-soc-sm8250、ath11k、pci-pwrctrl-pwrseq …）。
+# 只换 boot 的后果是：改动在构建机上明明在模块里，设备上加载的却还是旧的
+# 那份，而**版本字符串一样所以什么都不报错**。2026-10-24 就这么丢掉了一轮
+# ——  machine driver 的补丁编进了 snd-soc-sm8250.ko，自刷了 boot，重启，
+# 一模一样的 -110，而设备上那个 .ko 还是 11:04 的旧文件。
+#
+# 所以内核镜像和它的模块是一件东西，scripts/alioth-selfflash-boot.sh 默认
+# 两样一起送。
+#
+# 边界：只往 /usr/lib/modules/<归档里那一个顶层目录> 下面写。归档里每一个
+# 成员的路径都先验过 —— 绝对路径、`..`、指到外面的软链、顶层目录不止一个，
+# 任何一样都在解包之前拒绝。tar 自己不会替你挡这些。
+set -euo pipefail
+
+MODDIR=/usr/lib/modules
+
+log() { echo "alioth-install-modules: $*" >&2; }
+die() { log "$*"; exit 1; }
+
+TAR=""; YES=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --yes) YES=1 ;;
+    -*)    die "不认识的参数: $1" ;;
+    *)     [[ -z "$TAR" ]] || die "只接受一个归档"; TAR="$1" ;;
+  esac
+  shift
+done
+
+[[ -n "$TAR" ]] || die "用法: $0 <modules.tar.gz> [--yes]"
+[[ $EUID -eq 0 ]] || die "要 root（通过那条 sudoers 规则调用）"
+[[ -f "$TAR" ]] || die "没有 $TAR"
+[[ -d "$MODDIR" ]] || die "没有 $MODDIR"
+
+# 1. 验归档。python 而不是 `tar -t | grep`：要看的不只是名字，还有成员类型
+#    和软链的目标，而那些 tar -t 的默认输出里没有。
+KVER="$(python3 - "$TAR" <<'PY'
+import re, sys, tarfile
+
+tops = set()
+with tarfile.open(sys.argv[1]) as t:
+    for m in t.getmembers():
+        n = m.name
+        if n.startswith("/") or n.startswith("../") or "/../" in n or n == "..":
+            sys.exit("成员路径不安全: %r" % n)
+        if not (m.isfile() or m.isdir() or m.issym() or m.islnk()):
+            sys.exit("成员 %r 不是文件/目录/链接（类型 %r）" % (n, m.type))
+        if m.issym() or m.islnk():
+            tgt = m.linkname
+            if tgt.startswith("/") or "../" in tgt:
+                sys.exit("链接 %r 指到归档外: %r" % (n, tgt))
+        tops.add(n.split("/", 1)[0])
+
+if len(tops) != 1:
+    sys.exit("顶层不是恰好一个目录: %s" % sorted(tops))
+top = tops.pop()
+# 顶层必须长得像一个内核 release（uname -r）。挡住把归档解到 modules 下面
+# 某个不相关的名字里。
+if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+[A-Za-z0-9._+-]*", top):
+    sys.exit("顶层目录 %r 不像内核版本号" % top)
+print(top)
+PY
+)" || die "归档校验没过"
+
+TGT="${MODDIR}/${KVER}"
+n_files="$(tar tzf "$TAR" | wc -l)"
+log "$TAR -> $TGT（$n_files 个成员，版本 $KVER）"
+
+if [[ "$KVER" != "$(uname -r)" ]]; then
+  log "注意：归档是给 $KVER 的，现在跑的是 $(uname -r) —— 要配对的 boot 镜像也换掉才会生效。"
+fi
+
+if [[ "$YES" != 1 ]]; then
+  [[ -t 0 ]] || die "非交互运行要显式加 --yes"
+  printf 'alioth-install-modules: 输入 INSTALL 继续: ' >&2
+  read -r c
+  [[ "$c" == INSTALL ]] || die "没有确认，退出"
+fi
+
+# 2. 解包。--no-same-owner 把所有权归到 root（归档是在构建机上以普通用户
+#    打的，里面的 uid 是那台机器的，原样还出来会让模块变成 steamos 所有）。
+#    不删旧目录：旧版本的模块留着没有坏处，而中途失败时一棵半空的
+#    /usr/lib/modules/<ver> 会让下次开机起不来。
+tar xzf "$TAR" -C "$MODDIR" --no-same-owner --no-same-permissions
+chown -R root:root "$TGT"
+find "$TGT" -type d -exec chmod 0755 {} +
+find "$TGT" -type f -exec chmod 0644 {} +
+
+# 3. depmod。少了它 modprobe 按旧的 modules.dep 找依赖，新模块可能根本
+#    加载不上，而报错是「找不到模块」。
+depmod -a "$KVER"
+
+log "装好了（$TGT），已 depmod。重启后生效。"

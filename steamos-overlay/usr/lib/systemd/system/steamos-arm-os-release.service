@@ -1,0 +1,13 @@
+[Unit]
+Description=Show the installed SteamOS ARM release as the OS name
+# Before Steam starts, so Settings > System reads the new name.
+DefaultDependencies=no
+After=local-fs.target
+Before=display-manager.service systemd-user-sessions.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/steamos-arm/os-release-version
+
+[Install]
+WantedBy=multi-user.target

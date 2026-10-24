@@ -1,0 +1,78 @@
+#!/bin/bash
+# Pin NetworkManager to wpa_supplicant. Steam/steamos-manager rewrites
+# 99-valve-wifi-backend.conf to iwd; this kernel cannot run iwd
+# (no CONFIG_CRYPTO_USER_API_HASH / SKCIPHER).
+# Do not nmcli connect/reconnect here: that flaps wlan0 and Steam stays
+# on the library spinner (Lost device / AppStore Send failed).
+# The image ships /usr/lib/NetworkManager/conf.d/40-sm8550-wifi.conf with
+# exactly BODY, so this never rewrites it on a clean install: anything under
+# /usr that changes at runtime no longer matches the release's installed.json
+# and delta updates refuse to install.
+set -u
+
+BODY='[connection]
+wifi.powersave=2
+[device]
+wifi.backend=wpa_supplicant
+'
+
+# Idempotent on purpose: sm8550-wifi-backend.path watches these files, so
+# rewriting or chown/chmod-ing a file that is already right re-triggers it,
+# and at boot (NetworkManager also runs this) that tripped the start limit
+# and left nothing watching for the rest of the session.
+changed=0
+write_one() {
+  local dest="$1"
+  mkdir -p "$(dirname "$dest")"
+  if ! { [[ -f "$dest" ]] && cmp -s <(printf '%s' "$BODY") "$dest"; }; then
+    # Steam asks for wpa_supplicant on every start and steamos-manager then
+    # rewrites this file in its own layout; only a real iwd switch needs
+    # NetworkManager restarted again (a second restart drops Wi-Fi twice).
+    grep -qs '^[[:space:]]*wifi.backend[[:space:]]*=[[:space:]]*iwd' "$dest" && changed=1
+    printf '%s' "$BODY" >"$dest.tmp" && mv -f "$dest.tmp" "$dest"
+  fi
+  [[ "$(stat -c %u:%g "$dest")" == 0:0 ]] || chown root:root "$dest" 2>/dev/null
+  [[ "$(stat -c %a "$dest")" == 644 ]] || chmod 0644 "$dest"
+}
+
+link_one() {
+  [[ "$(readlink "$2" 2>/dev/null)" == "$1" ]] || ln -sfn "$1" "$2" 2>/dev/null
+}
+
+write_one /etc/NetworkManager/conf.d/99-valve-wifi-backend.conf
+# Only touch the overlay's upper dir while /etc isn't mounted over it (early
+# boot). Writing it underneath a mounted overlay makes the /etc write above
+# fail with "Stale file handle", NetworkManager comes back on iwd and Wi-Fi
+# is gone until reboot (Steam's setup and leaving Desktop Mode both do this).
+if [[ -d /var/lib/overlays/etc/upper ]] && [[ "$(findmnt -no FSTYPE /etc 2>/dev/null)" != overlay ]]; then
+  write_one /var/lib/overlays/etc/upper/NetworkManager/conf.d/99-valve-wifi-backend.conf
+fi
+if [[ -d /usr/lib/NetworkManager/conf.d ]]; then
+  write_one /usr/lib/NetworkManager/conf.d/40-sm8550-wifi.conf
+fi
+
+link_one /dev/null /etc/systemd/system/iwd.service
+rm -f /etc/systemd/system/multi-user.target.wants/iwd.service 2>/dev/null || true
+
+mkdir -p /etc/systemd/system/multi-user.target.wants \
+  /etc/systemd/system/NetworkManager.service.wants
+if [[ -f /usr/lib/systemd/system/wpa_supplicant.service ]]; then
+  link_one /usr/lib/systemd/system/wpa_supplicant.service \
+    /etc/systemd/system/multi-user.target.wants/wpa_supplicant.service
+  link_one /usr/lib/systemd/system/wpa_supplicant.service \
+    /etc/systemd/system/NetworkManager.service.wants/wpa_supplicant.service
+fi
+
+rfkill unblock wifi bluetooth 2>/dev/null || true
+
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl -q is-active iwd.service && systemctl stop iwd.service
+  systemctl -q is-active wpa_supplicant.service || systemctl start --no-block wpa_supplicant.service
+  # steamos-manager restarts NetworkManager right after writing iwd. If we
+  # had to put wpa_supplicant back, restart it again so it reads that.
+  if [[ "$changed" -eq 1 ]] && systemctl -q is-active NetworkManager.service; then
+    systemctl restart --no-block NetworkManager.service
+  fi
+fi
+
+exit 0

@@ -1,0 +1,18 @@
+[Unit]
+Description=SM8550/SM8650 speaker UCM/I2S setup
+# Started by udev (90-sm8550-audio.rules) and sound.target once the ASoC card
+# exists, which is only after the audio DSP firmware is up (~9 s after power
+# on). Not part of multi-user.target: it used to hold Game Mode back for
+# seconds while it waited for the card. WirePlumber waits for it instead
+# (wireplumber.service.d/60-wait-audio-setup.conf).
+After=sound.target systemd-modules-load.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+ExecStart=/usr/lib/steamos/sm8550-audio-setup
+
+[Install]
+WantedBy=sound.target

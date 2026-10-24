@@ -1,0 +1,16 @@
+[Unit]
+Description=Stay dark and charge when the tablet was started by its charger (Lenovo tablets)
+ConditionFirmware=|device-tree-compatible(lenovo,tb321fu)
+ConditionFirmware=|device-tree-compatible(lenovo,elden)
+ConditionFirmware=|device-tree-compatible(lenovo,baldur)
+After=systemd-udev-settle.service local-fs.target
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=infinity
+ExecStart=/usr/lib/steamos-arm/tablet-charger-hold
+
+[Install]
+WantedBy=multi-user.target

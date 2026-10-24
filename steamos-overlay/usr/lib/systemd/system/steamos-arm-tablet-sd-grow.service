@@ -1,0 +1,13 @@
+[Unit]
+Description=Grow SteamOS to the whole microSD card (first boot)
+ConditionFirmware=|device-tree-compatible(lenovo,elden)
+ConditionFirmware=|device-tree-compatible(lenovo,baldur)
+ConditionPathExists=!/var/lib/steamos-arm/sd-grown
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/steamos-arm/tablet-sd-grow
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ShadowBlip/InputPlumber/main/rootfs/usr/share/inputplumber/schema/composite_device_v1.json
+# SM8550 rsinput → virtual Steam Deck (deck-uhid) + keyboard (OSK haptic).
+#
+# Do not list USB/BT as ignore sources: deck-uhid is USB (VID 28de) and
+# matching it as a source restarts the composite in a loop (cursor, no Steam).
+# External HID is handled by sm8550-inputplumber-ext-hid (drop keyboard target).
+version: 1
+kind: CompositeDevice
+name: AYN Odin 2
+
+matches:
+  # The Odin 2 is on 02-ayn-odin2-mini.yaml (7.2.8 button codes).
+  - udev:
+      sys_path: /sys/firmware/devicetree/base
+      attributes:
+        - name: model
+          value: AYN Thor
+
+single_source: false
+
+source_devices:
+  - group: gamepad
+    evdev:
+      phys_path: rsinput-gamepad/input0
+      handler: event*
+    capability_map_id: ayn_mcu
+    passthrough: false
+  # Thor: the AYN key on the side (KEY_F24) is its own gpio-keys device.
+  - group: gamepad
+    evdev:
+      name: gpio-keys-ayn
+      phys_path: gpio-keys-ayn/input0
+      handler: event*
+    capability_map_id: ayn_mcu
+  # Gyro / accel (with the gyro kernel): qcom-imu-pad.service runs
+  # qcom-sdl-pad --motion-only, a DualSense over uhid named "AYN Odin2 IMU"
+  # (same name on the Thor) with idle buttons and sticks, so only its motion
+  # is used. Absent without the service.
+  - group: gamepad
+    hidraw:
+      vendor_id: 0x054c
+      product_id: 0x0ce6
+      name: "AYN Odin2 IMU*"
+  - group: gamepad
+    blocked: true
+    evdev:
+      name: "AYN Odin2 IMU*"
+      handler: event*
+
+options:
+  auto_manage: true
+
+target_devices:
+  - deck-uhid
+  - keyboard

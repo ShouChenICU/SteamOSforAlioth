@@ -1,0 +1,39 @@
+#!/bin/bash
+# Lenovo Legion Y700 Gen 5: put the tablet's own firmware and the Android
+# boot image hash in place, from what the installer left on the card's small
+# FAT partition (GPT name steamos-gen5-logs):
+#   firmware.tar          the firmware copied out of the tablet's Android
+#                         (it is signed for the device and can't be shipped)
+#   android-boot.sha256   the SHA-256 of the Android boot image in boot_b
+# Runs before udev starts the devices, so Wi-Fi, Bluetooth, touch and the DSPs
+# find their firmware on the first boot. A newer firmware.tar (another
+# install) replaces the old set.
+set -u
+FW=/var/lib/steamos-arm/firmware/baldur
+log() { echo "gen5-firstboot: $*"; }
+dev=""
+for u in /sys/class/block/*/uevent; do
+  grep -qx "PARTNAME=steamos-gen5-logs" "$u" && dev=/dev/$(sed -n 's/^DEVNAME=//p' "$u") && break
+done
+[[ -b "$dev" ]] || { log "no steamos-gen5-logs partition"; exit 0; }
+m=$(mktemp -d)
+mount -t vfat -o ro "$dev" "$m" || { log "could not mount $dev"; rmdir "$m"; exit 0; }
+if [[ -s "$m/firmware.tar" ]]; then
+  new=$(sha256sum "$m/firmware.tar" | cut -d' ' -f1)
+  if [[ "$(cat "$FW/.from" 2>/dev/null)" != "$new" ]]; then
+    rm -rf "$FW.new"; mkdir -p "$FW.new"
+    if tar -xf "$m/firmware.tar" -C "$FW.new" --no-same-owner; then
+      rm -rf "$FW"; mv "$FW.new" "$FW"; echo "$new" > "$FW/.from"
+      log "firmware: $(find "$FW" -type f | wc -l) files"
+    else
+      rm -rf "$FW.new"; log "firmware.tar didn't unpack"
+    fi
+  fi
+fi
+if [[ -s "$m/android-boot.sha256" ]]; then
+  mkdir -p /etc/steamos-arm
+  cmp -s "$m/android-boot.sha256" /etc/steamos-arm/android-boot.sha256 ||
+    install -m0644 "$m/android-boot.sha256" /etc/steamos-arm/android-boot.sha256
+fi
+umount "$m"; rmdir "$m"
+exit 0

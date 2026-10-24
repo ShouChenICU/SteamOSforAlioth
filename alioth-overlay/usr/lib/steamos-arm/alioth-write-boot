@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# 把一个 Android boot 镜像写进 boot_a 或 boot_b，在**设备自己身上**，
+# 不经 fastboot。
+#
+# 用法: alioth-write-boot <boot.img> [--slot _a|_b] [--yes]
+#
+# 为什么要有它：验证一版内核本来需要人按住音量下 + 电源进 fastboot，而改内核
+# 是这个项目里重复次数最多的循环。有了它，一轮迭代是「送文件 + 普通重启」，
+# 不用碰手机。PC 侧的驱动脚本是 scripts/alioth-selfflash-boot.sh。
+#
+# 它要 root，而正式系统里 steamos 用户没有免密 sudo。授权是 opt-in 的：
+# make-steamos-alioth.sh --install 只在设置了 ALIOTH_SSH_PUBKEY 时才装一条
+# sudoers 规则，而且只放开**这一个**命令。不设就一条规则都不写。
+#
+# 这里的每一道检查都对应一个「写完才发现」的后果。写坏 boot 分区不会砖 ——
+# 退路还是按住音量下 + 电源进 fastboot，和今天完全一样 —— 但那恰恰是这个
+# 脚本想省掉的那一步，所以宁可在下笔前多问几句。
+set -euo pipefail
+
+PART_SIZE=$((0xC000000))        # boot_a / boot_b 都是 192 MiB（getvar all 实测）
+MARK="${ALIOTH_MARK_SLOT:-/usr/lib/steamos-arm/alioth-mark-slot-successful}"
+# ALIOTH_BOOT_DEV_DIR 只为了能测，真机上就是下面那个默认值。
+# 不留这个口子的话，「该拒绝的时候真的一个字节都没写」这几条只能对着
+# /dev/disk/by-partlabel/boot_a 验 —— 而那条路在构建机上指向的可能是
+# 某张 SD 卡的同名分区（这个仓库里刷过不止一台设备），测一次就毁一张卡。
+DEVDIR="${ALIOTH_BOOT_DEV_DIR:-/dev/disk/by-partlabel}"
+
+log() { echo "alioth-write-boot: $*" >&2; }
+die() { log "$*"; exit 1; }
+
+IMG=""; SLOT=""; YES=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --slot) SLOT="$2"; shift ;;
+    --yes)  YES=1 ;;
+    -*)     die "不认识的参数: $1" ;;
+    *)      [[ -z "$IMG" ]] || die "只接受一个镜像"; IMG="$1" ;;
+  esac
+  shift
+done
+
+[[ -n "$IMG" ]] || die "用法: $0 <boot.img> [--slot _a|_b] [--yes]"
+[[ $EUID -eq 0 ]] || die "要 root（通过那条 sudoers 规则调用）"
+[[ -f "$IMG" ]] || die "没有 $IMG"
+
+# 1. 必须真的是一个 Android boot 镜像。写错文件的后果是普通重启起不来，
+#    而那时才发现就已经晚了 —— 魔数是 8 个字节，现在看一眼不要钱。
+magic="$(head -c8 "$IMG")"
+[[ "$magic" == "ANDROID!" ]] || die "$IMG 开头不是 'ANDROID!' —— 这不是 boot 镜像"
+
+size=$(stat -c %s "$IMG")
+(( size > 0 && size <= PART_SIZE )) \
+  || die "镜像 $size 字节，不在 (0, $PART_SIZE] 内"
+
+# 2. 槽位。默认写活动槽 —— 那是普通重启会用的那个。解析 GPT 的活动位这件事
+#    已经在 alioth-mark-slot-successful 里做对了一次，不在这里抄第二遍。
+if [[ -z "$SLOT" ]]; then
+  SLOT="$("$MARK" --print-active)" || die "问不出活动槽（$MARK --print-active 失败）"
+fi
+case "$SLOT" in
+  _a|_b) ;;
+  *) die "槽位 '$SLOT' 不是 _a 或 _b" ;;
+esac
+
+DEV="${DEVDIR}/boot${SLOT}"
+[[ -b "$DEV" ]] || die "$DEV 不是块设备"
+
+# 3. 绝不碰 abl / super / userdata。这里只会写 boot_a 或 boot_b，上面的
+#    case 已经保证了；再解析一次真实路径，挡住 by-partlabel 被人动过手脚的
+#    情况（软链指向别的分区的话，上面的检查全都看不出来）。
+real="$(readlink -f "$DEV")"
+label="$(lsblk -no PARTLABEL "$real" 2>/dev/null | head -1 | tr -d ' ')"
+[[ "$label" == "boot${SLOT}" ]] \
+  || die "$DEV -> $real 的 PARTLABEL 是 '$label'，不是 boot${SLOT} —— 拒绝"
+
+part_bytes="$(blockdev --getsize64 "$real")"
+(( size <= part_bytes )) || die "镜像 $size 字节，超过 $real 的 $part_bytes 字节"
+
+want="$(sha256sum "$IMG" | cut -d' ' -f1)"
+log "$IMG ($size 字节, sha256 ${want:0:12}) -> $real (boot${SLOT}, $part_bytes 字节)"
+
+if [[ "$YES" != 1 ]]; then
+  [[ -t 0 ]] || die "非交互运行要显式加 --yes"
+  printf 'alioth-write-boot: 输入 WRITE 继续: ' >&2
+  read -r c
+  [[ "$c" == WRITE ]] || die "没有确认，退出"
+fi
+
+dd if="$IMG" of="$real" bs=1M conv=fsync status=none
+blockdev --flushbufs "$real"
+
+# 4. 读回来比。dd 返回 0 不等于盘上的字节是对的 —— UFS 写失败、缓存没落盘、
+#    分区比以为的小，都会在这里现形，而不是在一次起不来的重启里现形。
+# count_bytes 而不是 `dd bs=1M count=N | head -c $size`：后者一到字节数就
+# 关掉管道，dd 吃一个 SIGPIPE，于是在 `set -o pipefail` 下整条管道以 141
+# 退出 —— 读回校验明明通过了，脚本却报错退出（实测如此）。
+got="$(dd if="$real" bs=1M iflag=count_bytes count="$size" status=none \
+       | sha256sum | cut -d' ' -f1)"
+[[ "$got" == "$want" ]] \
+  || die "读回校验不符：写入 ${want:0:12}，读回 ${got:0:12} —— **不要重启**，
+     先按住音量下 + 电源进 fastboot，用 ./flash-alioth.sh 重刷。"
+
+log "读回校验通过（sha256 ${got:0:12}）。现在普通重启就会用这个内核。"

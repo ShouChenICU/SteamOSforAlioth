@@ -1,0 +1,144 @@
+drm/msm: export GPU utilization through debugfs
+
+A performance overlay running in the compositor has no way to ask how busy
+the GPU is. The DRM fdinfo engine times are per-client, so an overlay that
+reads them accounts only for its own submissions -- gamescope's mangoapp
+reports 0% GPU load while a game renders at full tilt -- and msm has no
+equivalent of amdgpu's system-wide gpu_busy_percent.
+
+The number is already there: a6xx_gpu_busy() feeds the devfreq governor a
+monotonic busy-cycle counter. The governor consumes its own samples, so add
+a second mark and a debugfs file over it.
+
+Named perf_now at the DRM minor's debugfs root, because that is where
+MangoHud's msm backend looks for it.
+
+--- a/drivers/gpu/drm/msm/msm_debugfs.c
++++ b/drivers/gpu/drm/msm/msm_debugfs.c
+@@ -357,6 +357,32 @@
+ 	return ret;
+ }
+ 
++/*
++ * Utilization of the whole GPU, as a percentage.  Userspace performance
++ * overlays need a system-wide figure: the DRM fdinfo engine times are
++ * per-client, so an overlay living in the compositor only ever sees its own
++ * submissions and reports an idle GPU while a game is rendering.
++ */
++static int msm_gpu_perf_now_show(struct seq_file *m, void *arg)
++{
++	struct drm_device *dev = m->private;
++	struct msm_drm_private *priv = dev->dev_private;
++	struct msm_gpu *gpu = priv->gpu;
++	int load;
++
++	if (!gpu)
++		return -ENODEV;
++
++	load = msm_devfreq_get_load(gpu);
++	if (load < 0)
++		return load;
++
++	seq_printf(m, "%d\n", load);
++
++	return 0;
++}
++DEFINE_SHOW_ATTRIBUTE(msm_gpu_perf_now);
++
+ static void msm_debugfs_gpu_init(struct drm_minor *minor)
+ {
+ 	struct drm_device *dev = minor->dev;
+@@ -366,6 +392,9 @@
+ 	debugfs_create_file("gpu", S_IRUSR, minor->debugfs_root,
+ 		dev, &msm_gpu_fops);
+ 
++	debugfs_create_file("perf_now", 0444, minor->debugfs_root,
++		dev, &msm_gpu_perf_now_fops);
++
+ 	debugfs_create_u32("hangcheck_period_ms", 0600, minor->debugfs_root,
+ 		&priv->hangcheck_period);
+ 
+--- a/drivers/gpu/drm/msm/msm_gpu.h
++++ b/drivers/gpu/drm/msm/msm_gpu.h
+@@ -166,6 +166,16 @@
+ 
+ 	/** @suspended: tracks if we're suspended */
+ 	bool suspended;
++
++	/**
++	 * @load_busy_cycles:
++	 * Busy counter value at the last msm_devfreq_get_load() call.  The
++	 * governor's own sampling consumes @busy_cycles, so a reader that
++	 * wants a utilization figure has to keep its own mark.
++	 */
++	u64 load_busy_cycles;
++	/** @load_time: Time of the last msm_devfreq_get_load() call. */
++	ktime_t load_time;
+ };
+ 
+ struct msm_gpu {
+@@ -745,6 +755,7 @@
+ void msm_devfreq_boost(struct msm_gpu *gpu, unsigned factor);
+ void msm_devfreq_active(struct msm_gpu *gpu);
+ void msm_devfreq_idle(struct msm_gpu *gpu);
++int msm_devfreq_get_load(struct msm_gpu *gpu);
+ 
+ int msm_gpu_hw_init(struct msm_gpu *gpu);
+ 
+--- a/drivers/gpu/drm/msm/msm_gpu_devfreq.c
++++ b/drivers/gpu/drm/msm/msm_gpu_devfreq.c
+@@ -119,6 +119,54 @@
+ 	return 0;
+ }
+ 
++/**
++ * msm_devfreq_get_load() - percentage of wall time the GPU was busy
++ *
++ * Returns how busy the GPU was between this call and the previous one, or a
++ * negative errno if the counter is unavailable.  Nothing else in the driver
++ * exposes this: msm has no equivalent of amdgpu's gpu_busy_percent, and the
++ * DRM fdinfo engine times only ever account for one client's submissions.
++ */
++int msm_devfreq_get_load(struct msm_gpu *gpu)
++{
++	struct msm_gpu_devfreq *df = &gpu->devfreq;
++	u64 busy_cycles, busy_time, total_time;
++	unsigned long sample_rate;
++	ktime_t time;
++
++	if (!gpu->funcs->gpu_busy)
++		return -ENODEV;
++
++	mutex_lock(&df->lock);
++
++	time = ktime_get();
++	total_time = ktime_us_delta(time, df->load_time);
++	df->load_time = time;
++
++	/*
++	 * gpu_busy() may only be called while the GPU is powered, and a
++	 * suspended GPU is by definition not busy.
++	 */
++	if (df->suspended) {
++		mutex_unlock(&df->lock);
++		return 0;
++	}
++
++	busy_cycles = gpu->funcs->gpu_busy(gpu, &sample_rate);
++	busy_time = busy_cycles - df->load_busy_cycles;
++	df->load_busy_cycles = busy_cycles;
++
++	mutex_unlock(&df->lock);
++
++	if (!total_time)
++		return 0;
++
++	busy_time *= USEC_PER_SEC;
++	busy_time = div64_ul(busy_time, sample_rate);
++
++	return min_t(u64, div64_u64(busy_time * 100, total_time), 100);
++}
++
+ static struct devfreq_dev_profile msm_devfreq_profile = {
+ 	.timer = DEVFREQ_TIMER_DELAYED,
+ 	.polling_ms = 50,

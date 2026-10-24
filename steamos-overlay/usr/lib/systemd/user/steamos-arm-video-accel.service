@@ -1,0 +1,11 @@
+[Unit]
+# Only the player's session: a root login starts a user manager for root too.
+ConditionUser=!root
+Description=Hardware video decoder for Flatpak apps (files and Firefox override)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/lib/steamos-arm/hub/hub.py video-accel-sync
+
+[Install]
+WantedBy=default.target

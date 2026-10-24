@@ -1,0 +1,15 @@
+#!/bin/bash
+# Name the handheld after itself. Every image starts as "frame" (the Steam
+# Frame system it is built on), which is what Steam, Remote Play and the
+# network show. Derive the name from the device tree's model instead:
+# "KONKR Pocket FIT" -> static "konkr-pocket-fit", pretty "KONKR Pocket FIT".
+# Only while the name is still the image's, so one set in Steam or with
+# hostnamectl stays (/etc lives on /var, so it lasts across updates).
+set -u
+current="$(hostnamectl --static 2>/dev/null || cat /etc/hostname 2>/dev/null)"
+[[ "$current" == frame || -z "$current" ]] || exit 0
+model="$(tr -d '\0' < /sys/firmware/devicetree/base/model 2>/dev/null)"
+[[ -n "$model" ]] || exit 0
+name="$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -c1-63)"
+[[ -n "$name" ]] || exit 0
+hostnamectl set-hostname --static "$name" && hostnamectl set-hostname --pretty "$model"

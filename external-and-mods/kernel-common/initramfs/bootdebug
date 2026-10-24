@@ -1,0 +1,226 @@
+#!/bin/sh
+# Debug log collector for testers without a Linux PC. Installed into the
+# root filesystem by the initramfs when the cmdline has steamos.debug=1 (the
+# debug KERNEL) or a file called "debug" sits on the FAT boot partition. The
+# SM8550 image also ships it as steamos-arm-bootdebug-file.service, for
+# kernels that bring their own initramfs.
+# Right away, then every 20 s for 3 minutes, it writes the logs to BOOT/debug-logs/, which
+# any PC can read. After that perf.txt gets CPU/GPU/SD samples for 30 minutes.
+out=/boot/debug-logs
+# Low priority for CPU and disk, so a game running meanwhile doesn't stutter.
+renice -n 19 -p $$ >/dev/null 2>&1
+ionice -c 3 -p $$ >/dev/null 2>&1
+
+# steamos.screenlog=1 (a debug boot.img for devices with no FAT partition
+# and no working USB host, like the Legion Y700 Gen 4): after 75 s stop the
+# login manager, so the text console gets the panel back, and keep a report
+# on screen for a photo. Never on a normal boot: it ends Game Mode.
+if grep -qw 'steamos.screenlog=1' /proc/cmdline; then
+  (
+    sleep 70
+    # What the display hardware is scanning out while Game Mode runs: planes,
+    # their framebuffers and formats, the CRTC and the connector.
+    mountpoint -q /sys/kernel/debug || mount -t debugfs none /sys/kernel/debug 2>/dev/null
+    for s in /sys/kernel/debug/dri/*/state; do [ -e "$s" ] && cat "$s"; done > /run/steamos-arm-kms-state.txt 2>&1
+    sleep 5
+    systemctl stop display-manager.service 2>/dev/null
+    sleep 3
+    chvt 1 2>/dev/null
+    exec </dev/null >/dev/tty1 2>&1
+    setterm --blank 0 --powerdown 0 --cursor off 2>/dev/null
+    while :; do
+      # Three pages in turn, 30 s each: firmware and GPU, Game Mode's
+      # display setup (its first lines: connector, mode, format, rotation),
+      # then what the display hardware was scanning out.
+      printf '\033[2J\033[H'
+      {
+        echo "=== SteamOS ARM debug report 1/3, uptime $(cut -d' ' -f1 /proc/uptime)s: take a photo ==="
+        echo "--- firmware copy"
+        journalctl -b -o cat -u steamos-arm-tablet-firmware.service | grep -vE 'searching|own copy' | tail -n 8
+        echo "--- display and GPU (kernel)"
+        journalctl -b -k -o cat | grep -iE 'dpu|dsi|dsc|panel|adreno|a8xx|zap|gmu|drm' | grep -viE 'sync_state|request_fw. loaded' | tail -n 40
+        echo "--- failed units"
+        systemctl --failed --no-legend --plain 2>/dev/null | cut -d' ' -f1 | tr '\n' ' '; echo
+        echo "--- panel"
+        for c in /sys/class/drm/card*-*; do [ -e "$c/status" ] && echo "${c##*/} $(cat $c/status) $(tr '\n' ' ' <$c/modes 2>/dev/null)"; done
+      } 2>&1 | cut -c1-118
+      sleep 30
+      printf '\033[2J\033[H'
+      {
+        echo "=== SteamOS ARM debug report 2/3: take a photo ==="
+        journalctl -b -o cat _UID=1000 | grep -iE 'gamescope|drm|vulkan|vk_|wsi|xwayland' | grep -viE 'steamvr|openvr|pipewire' | head -n 75
+      } 2>&1 | cut -c1-118
+      sleep 30
+      # Planes in use only (crtc set), with their framebuffer, then the CRTC
+      # and connector state.
+      printf '\033[2J\033[H'
+      {
+        echo "=== SteamOS ARM debug report 3/3: display state in Game Mode, take a photo ==="
+        awk '/^plane\[/ { p = $0; keep = 0; next }
+             p != "" && /^\tcrtc=/ { keep = ($0 !~ /null/); if (keep) print p; p = "" }
+             /^(crtc|connector)\[/ { keep = 1; p = "" }
+             keep && /crtc=|fb=|allocated by|format=|modifier=|size=|-pos=|rotation=|zpos=|enable=|active=|mode:|connector\[|crtc\[|self_refresh|blend|alpha/' \
+          /run/steamos-arm-kms-state.txt 2>/dev/null | head -n 75
+        [ -s /run/steamos-arm-kms-state.txt ] || echo "(no DRM state: debugfs not available)"
+      } 2>&1 | cut -c1-118
+      sleep 30
+    done
+  ) &
+fi
+# Desktop Mode debug boot (steamos.session=plasma) on a device with no way to
+# copy files off: once the tester has Wi-Fi, upload the previous boot's
+# journal (the Game Mode boot that went wrong) with Steam's own logs, and
+# leave the link on the desktop.
+if grep -qw 'steamos.session=plasma' /proc/cmdline; then
+  (
+    d=/home/steamos/Desktop; mkdir -p "$d"; chown steamos:steamos "$d" 2>/dev/null
+    printf 'Waiting for Wi-Fi to upload the logs. Connect to Wi-Fi from the taskbar.\n' > "$d/LOG-LINK.txt"
+    n=0
+    until curl -fsI -m 10 https://gofile.io >/dev/null 2>&1; do
+      n=$((n + 1)); [ "$n" -gt 120 ] && exit 0; sleep 10
+    done
+    w=$(mktemp -d)
+    # The latest earlier boot where Game Mode ran (the tester may have booted
+    # Desktop Mode more than once).
+    b=-1
+    for i in 1 2 3 4 5 6; do
+      journalctl -b -$i -q -o cat _UID=1000 2>/dev/null | grep -q 'gamescope version' && { b=-$i; break; }
+    done
+    journalctl -b $b --no-pager -o short-monotonic > "$w/journal-gamemode-boot.txt" 2>&1
+    journalctl -b $b --no-pager -o short-monotonic _UID=1000 > "$w/journal-gamemode-user.txt" 2>&1
+    journalctl --list-boots --no-pager > "$w/boots.txt" 2>&1; echo "game mode boot: $b" >> "$w/boots.txt"
+    journalctl -b --no-pager -o short-monotonic > "$w/journal-this-boot.txt" 2>&1
+    cp -r /home/steamos/.local/share/Steam/logs "$w/steam-logs" 2>/dev/null
+    cp /home/steamos/.steam/steam/logs/bootstrap_log.txt "$w/" 2>/dev/null
+    ls -la /home/steamos/.local/share/Steam /home/steamos/.steam > "$w/steam-dirs.txt" 2>&1
+    # Whether PipeWire answers, and where its threads sit in the kernel if not.
+    {
+      ls -la /dev/video* /dev/media* /dev/snd 2>&1
+      for p in $(pgrep -x 'pipewire|wireplumber|pipewire-pulse'); do
+        echo "=== $p $(cat /proc/$p/comm)"
+        for t in /proc/$p/task/*; do
+          echo "--- ${t##*/} $(cat $t/comm) $(cut -d' ' -f3 $t/stat) $(cat $t/wchan)"
+          cat $t/stack 2>/dev/null
+        done
+        ls -l /proc/$p/fd 2>/dev/null | grep -E 'video|media|snd|v4l'
+      done
+      echo "=== pw-cli info 0"
+      runuser -u steamos -- env XDG_RUNTIME_DIR=/run/user/1000 timeout 10 pw-cli info 0 2>&1
+      echo "=== wpctl status"
+      runuser -u steamos -- env XDG_RUNTIME_DIR=/run/user/1000 timeout 10 wpctl status 2>&1
+    } > "$w/pipewire-state.txt" 2>&1
+    tar -C "$w" -czf /run/steamos-arm-logs.tgz . && rm -rf "$w"
+    link=$(curl -fsS -m 300 -F file=@/run/steamos-arm-logs.tgz https://upload.gofile.io/uploadfile 2>&1 |
+      sed -n 's/.*"downloadPage":"\([^"]*\)".*/\1/p')
+    if [ -n "$link" ]; then
+      printf 'Logs uploaded, send this link:\n\n%s\n' "$link" > "$d/LOG-LINK.txt"
+    else
+      printf 'Upload failed, reboot to Desktop Mode to try again.\n' > "$d/LOG-LINK.txt"
+    fi
+    chown steamos:steamos "$d/LOG-LINK.txt" 2>/dev/null
+  ) &
+fi
+mountpoint -q /boot || mount /boot 2>/dev/null
+# Some images mount BOOT read-only (the 8 Elite ones); the logs need it
+# writable, whichever unit started us.
+if grep -qE '^[^ ]+ /boot [^ ]+ ro[, ]' /proc/mounts; then
+  mount -o remount,rw /boot 2>/dev/null
+fi
+# No FAT boot partition (Lenovo Legion Y700 Gen 4 boots straight from
+# boot.img): the logs go to a USB stick (FAT32/exFAT) instead, if one is
+# plugged in within 2 minutes; otherwise to /boot/debug-logs on the system.
+if ! mountpoint -q /boot; then
+  usb=/run/steamos-arm-usblog
+  n=0
+  while [ "$n" -lt 24 ]; do
+    dev=$(lsblk -rpno NAME,FSTYPE,HOTPLUG 2>/dev/null | awk '$3 == 1 && ($2 == "vfat" || $2 == "exfat") { print $1; exit }')
+    if [ -n "$dev" ]; then
+      mkdir -p "$usb"
+      if mount -o rw "$dev" "$usb" 2>/dev/null; then
+        out="$usb/debug-logs"
+        echo "bootdebug: logs to the USB stick $dev"
+      fi
+      break
+    fi
+    n=$((n + 1)); sleep 5
+  done
+fi
+mkdir -p "$out" || { echo "bootdebug: /boot isn't writable, no logs" >&2; exit 0; }
+
+# The boot before this one: after a freeze and a forced restart, that's the
+# one with the answer (the journal is persistent).
+journalctl -b -1 --no-pager -o short-monotonic > "$out/journal-previous-boot.txt" 2>&1
+# GPU/GMU hang dumps kept by save-devcoredump (they're gone from the kernel
+# after five minutes).
+[ -d /var/lib/steamos-arm/devcoredump ] && cp -a /var/lib/steamos-arm/devcoredump "$out/" 2>/dev/null
+i=0
+# First pass straight away (a hang shortly after boot still leaves logs),
+# then every 20 s.
+while [ "$i" -lt 10 ]; do
+  [ "$i" -gt 0 ] && sleep 20
+  i=$((i + 1))
+  {
+    echo "=== pass $i  uptime $(cat /proc/uptime)"
+    cat /sys/firmware/devicetree/base/model 2>/dev/null | tr -d '\0'; echo
+    uname -a
+    echo "--- failed units"; systemctl --failed --no-pager
+    echo "--- sessions"; loginctl list-sessions --no-pager
+    echo "--- drm"; for c in /sys/class/drm/card*-*; do echo "$c $(cat $c/status 2>/dev/null) $(head -1 $c/modes 2>/dev/null)"; done
+    echo "--- backlight"; for b in /sys/class/backlight/*; do echo "$b $(cat $b/brightness)/$(cat $b/max_brightness)"; done
+    # Charging: what the charger negotiated (USB-C PD or plain 5 V) and how
+    # much goes in, for slow-charging reports.
+    echo "--- power supplies"; for p in /sys/class/power_supply/*; do echo "[${p##*/}]"; cat "$p/uevent" 2>/dev/null | sed 's/^POWER_SUPPLY_/  /'; done
+    echo "--- usb-c"; for t in /sys/class/typec/*; do [ -e "$t" ] || continue; echo "${t##*/}: $(for a in data_role power_role power_operation_mode orientation; do [ -r "$t/$a" ] && printf '%s=%s ' "$a" "$(cat "$t/$a")"; done)"; done
+    echo "--- gpu"; ls /sys/class/devfreq/ 2>&1; dmesg | grep -i -E "adreno|msm_dpu|a7xx|gmu|zap|drm" | tail -40
+  } > "$out/summary.txt" 2>&1
+  dmesg > "$out/dmesg.txt" 2>&1
+  {
+    echo "--- pci (vendor:device class -> driver)"
+    for p in /sys/bus/pci/devices/*; do
+      [ -e "$p" ] || continue
+      d=$(readlink "$p/driver" 2>/dev/null); d=${d##*/}
+      echo "${p##*/} $(cat "$p/vendor" "$p/device" "$p/class" 2>/dev/null | tr '\n' ' ')-> ${d:-none}"
+    done
+    echo "--- usb"; for u in /sys/bus/usb/devices/*; do [ -e "$u/idVendor" ] && echo "${u##*/} $(cat "$u/idVendor"):$(cat "$u/idProduct") $(cat "$u/product" 2>/dev/null)"; done
+    echo "--- input"; cat /proc/bus/input/devices
+    echo "--- network"; ip -br link 2>&1; nmcli -t device 2>&1
+    echo "--- modules"; cat /proc/modules
+  } > "$out/devices.txt" 2>&1
+  journalctl -b --no-pager -o short-monotonic > "$out/journal.txt" 2>&1
+  journalctl -b --no-pager -o short-monotonic _UID=1000 > "$out/journal-user.txt" 2>&1
+  journalctl -b --no-pager -o short-monotonic -t gamescope-session -t gamescope -t bottom-screen > "$out/gamescope.txt" 2>&1
+  # vulkaninfo loads the whole driver: on the second pass (the session is up
+  # by then) and the last, not every 20 s.
+  if [ "$i" -eq 2 ] || [ "$i" -eq 10 ]; then
+    runuser -u steamos -- env XDG_RUNTIME_DIR=/run/user/1000 vulkaninfo --summary > "$out/vulkan.txt" 2>&1
+  fi
+  sync
+done
+echo "done, $(date)" > "$out/DONE.txt"
+sync
+
+# Then 30 minutes of performance samples every 5 s, so a tester can just play
+# a game and send the folder: CPU clocks per cluster, GPU clock/governor, the
+# hottest sensor and the SD card's bus mode.
+mountpoint -q /sys/kernel/debug || mount -t debugfs none /sys/kernel/debug 2>/dev/null
+gpu=$(ls -d /sys/class/devfreq/*gpu* /sys/class/devfreq/3d00000.gpu 2>/dev/null | head -1)
+{
+  echo "--- cpufreq"
+  for p in /sys/devices/system/cpu/cpufreq/policy*; do
+    echo "${p##*/} cpus=$(cat $p/related_cpus) gov=$(cat $p/scaling_governor) max=$(cat $p/scaling_max_freq)/$(cat $p/cpuinfo_max_freq)"
+  done
+  echo "--- gpu ${gpu:-none}"
+  [ -n "$gpu" ] && echo "gov=$(cat $gpu/governor) min=$(cat $gpu/min_freq) max=$(cat $gpu/max_freq) avail=$(cat $gpu/available_frequencies)"
+  echo "--- sd"; cat /sys/kernel/debug/mmc0/ios 2>&1
+  echo "--- samples: uptime | cpu MHz per policy | gpu MHz (load) | max temp C"
+} > "$out/perf.txt" 2>&1
+n=0
+while [ "$n" -lt 360 ]; do
+  c=""; for p in /sys/devices/system/cpu/cpufreq/policy*; do c="$c $(( $(cat $p/scaling_cur_freq) / 1000 ))"; done
+  g="-"; [ -n "$gpu" ] && g="$(( $(cat $gpu/cur_freq) / 1000000 )) ($(cat $gpu/load 2>/dev/null || echo ?))"
+  t=$(cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null | sort -n | tail -1)
+  echo "$(cut -d' ' -f1 /proc/uptime) |$c | $g | $(( ${t:-0} / 1000 ))" >> "$out/perf.txt"
+  n=$((n + 1)); [ $((n % 12)) -eq 0 ] && sync
+  sleep 5
+done
+sync

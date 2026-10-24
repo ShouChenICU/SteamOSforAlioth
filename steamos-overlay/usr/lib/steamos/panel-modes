@@ -1,0 +1,149 @@
+#!/usr/bin/env python3
+"""panel-modes: refresh rates of the connected internal panels.
+
+  panel-modes              one line per connected DSI/eDP connector:
+                           <name> <W>x<H> <orientation> <rate> [<rate> ...]
+  panel-modes --max NAME   highest rate NAME lists at its preferred size
+  panel-modes --rates NAME the rates NAME lists at its preferred size, comma
+                           separated (what Steam's refresh and frame limit
+                           lists are built from)
+  panel-modes --json       the same as JSON
+
+<orientation> is the connector's "panel orientation" property (set from the
+DT panel `rotation`): normal, upside-down, left-up, right-up, or none.
+
+The DSI panels on these handhelds have no EDID, and /sys/class/drm/*/modes
+only lists sizes, so this reads the mode list through libdrm. gamescope
+builds its refresh table from the same list (see our DRMBackend patch).
+"""
+from __future__ import annotations
+
+import ctypes
+import glob
+import os
+import sys
+
+
+class ModeInfo(ctypes.Structure):
+    _fields_ = [("clock", ctypes.c_uint32),
+                ("hdisplay", ctypes.c_uint16), ("hsync_start", ctypes.c_uint16),
+                ("hsync_end", ctypes.c_uint16), ("htotal", ctypes.c_uint16),
+                ("hskew", ctypes.c_uint16),
+                ("vdisplay", ctypes.c_uint16), ("vsync_start", ctypes.c_uint16),
+                ("vsync_end", ctypes.c_uint16), ("vtotal", ctypes.c_uint16),
+                ("vscan", ctypes.c_uint16),
+                ("vrefresh", ctypes.c_uint32), ("flags", ctypes.c_uint32),
+                ("type", ctypes.c_uint32), ("name", ctypes.c_char * 32)]
+
+
+class Resources(ctypes.Structure):
+    _fields_ = [("count_fbs", ctypes.c_int), ("fbs", ctypes.POINTER(ctypes.c_uint32)),
+                ("count_crtcs", ctypes.c_int), ("crtcs", ctypes.POINTER(ctypes.c_uint32)),
+                ("count_connectors", ctypes.c_int), ("connectors", ctypes.POINTER(ctypes.c_uint32)),
+                ("count_encoders", ctypes.c_int), ("encoders", ctypes.POINTER(ctypes.c_uint32)),
+                ("min_width", ctypes.c_uint32), ("max_width", ctypes.c_uint32),
+                ("min_height", ctypes.c_uint32), ("max_height", ctypes.c_uint32)]
+
+
+class Connector(ctypes.Structure):
+    _fields_ = [("connector_id", ctypes.c_uint32), ("encoder_id", ctypes.c_uint32),
+                ("connector_type", ctypes.c_uint32), ("connector_type_id", ctypes.c_uint32),
+                ("connection", ctypes.c_int), ("mmWidth", ctypes.c_uint32),
+                ("mmHeight", ctypes.c_uint32), ("subpixel", ctypes.c_int),
+                ("count_modes", ctypes.c_int), ("modes", ctypes.POINTER(ModeInfo)),
+                ("count_props", ctypes.c_int), ("props", ctypes.POINTER(ctypes.c_uint32)),
+                ("prop_values", ctypes.POINTER(ctypes.c_uint64)),
+                ("count_encoders", ctypes.c_int), ("encoders", ctypes.POINTER(ctypes.c_uint32))]
+
+
+class PropEnum(ctypes.Structure):
+    _fields_ = [("value", ctypes.c_uint64), ("name", ctypes.c_char * 32)]
+
+
+class Property(ctypes.Structure):
+    _fields_ = [("prop_id", ctypes.c_uint32), ("flags", ctypes.c_uint32),
+                ("name", ctypes.c_char * 32), ("count_values", ctypes.c_int),
+                ("values", ctypes.POINTER(ctypes.c_uint64)), ("count_enums", ctypes.c_int),
+                ("enums", ctypes.POINTER(PropEnum)), ("count_blobs", ctypes.c_int),
+                ("blob_ids", ctypes.POINTER(ctypes.c_uint32))]
+
+
+TYPES = {14: "eDP", 16: "DSI"}
+ORIENTATION = {0: "normal", 1: "upside-down", 2: "left-up", 3: "right-up"}
+CONNECTED = 1
+MODE_TYPE_PREFERRED = 1 << 3
+
+
+def orientation(drm, fd: int, c: Connector) -> str:
+    for p in range(c.count_props):
+        prop = drm.drmModeGetProperty(fd, c.props[p])
+        if not prop:
+            continue
+        name = prop.contents.name
+        drm.drmModeFreeProperty(prop)
+        if name == b"panel orientation":
+            return ORIENTATION.get(c.prop_values[p], "none")
+    return "none"
+
+
+def panels() -> list[tuple[str, int, int, str, list[int]]]:
+    drm = ctypes.CDLL("libdrm.so.2")
+    drm.drmModeGetResources.restype = ctypes.POINTER(Resources)
+    drm.drmModeGetConnector.restype = ctypes.POINTER(Connector)
+    drm.drmModeGetConnector.argtypes = [ctypes.c_int, ctypes.c_uint32]
+    drm.drmModeGetProperty.restype = ctypes.POINTER(Property)
+    drm.drmModeGetProperty.argtypes = [ctypes.c_int, ctypes.c_uint32]
+    out = []
+    for card in sorted(glob.glob("/dev/dri/card[0-9]*")):
+        try:
+            fd = os.open(card, os.O_RDWR | os.O_CLOEXEC)
+        except OSError:
+            continue
+        try:
+            res = drm.drmModeGetResources(fd)
+            if not res:
+                continue
+            for i in range(res.contents.count_connectors):
+                conn = drm.drmModeGetConnector(fd, res.contents.connectors[i])
+                if not conn:
+                    continue
+                c = conn.contents
+                kind = TYPES.get(c.connector_type)
+                if kind and c.connection == CONNECTED and c.count_modes > 0:
+                    modes = [c.modes[m] for m in range(c.count_modes)]
+                    pref = next((m for m in modes if m.type & MODE_TYPE_PREFERRED), modes[0])
+                    rates = sorted({m.vrefresh for m in modes
+                                    if (m.hdisplay, m.vdisplay) == (pref.hdisplay, pref.vdisplay)})
+                    out.append((f"{kind}-{c.connector_type_id}", pref.hdisplay, pref.vdisplay,
+                                orientation(drm, fd, c), rates))
+                drm.drmModeFreeConnector(conn)
+            drm.drmModeFreeResources(res)
+        finally:
+            os.close(fd)
+    return out
+
+
+def main() -> int:
+    try:
+        found = panels()
+    except OSError as exc:
+        print(f"panel-modes: {exc}", file=sys.stderr)
+        return 1
+    if len(sys.argv) == 2 and sys.argv[1] == "--json":
+        import json
+        print(json.dumps([{"name": n, "width": w, "height": h, "orientation": o, "rates": r}
+                          for n, w, h, o, r in found]))
+        return 0
+    if len(sys.argv) == 3 and sys.argv[1] in ("--max", "--rates"):
+        for name, _, _, _, rates in found:
+            if name == sys.argv[2] and rates:
+                print(max(rates) if sys.argv[1] == "--max" else ",".join(map(str, rates)))
+                return 0
+        return 1
+    for name, w, h, orient, rates in found:
+        print(name, f"{w}x{h}", orient, *rates)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

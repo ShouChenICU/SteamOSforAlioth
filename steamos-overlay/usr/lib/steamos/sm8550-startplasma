@@ -1,0 +1,10 @@
+#!/bin/bash
+# Official startplasma-wayland, after clearing Game Mode Qt/X11 leftovers.
+/usr/lib/steamos/sm8550-prepare-plasma
+# Screen layout for this device (rotation, scale, second screen, touch).
+/usr/lib/steamos/desktop-outputs || true
+# First Desktop start: scale and touch mode for this panel (keeps user choices).
+# After desktop-outputs: run first, it seeded the shipped Rotated270 layout,
+# which desktop-outputs then kept as the user's (upside down on the Portal).
+[[ -x /usr/lib/steamos-arm/desktop-fit ]] && /usr/lib/steamos-arm/desktop-fit || true
+exec /usr/bin/startplasma-wayland "$@"

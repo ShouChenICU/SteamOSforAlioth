@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ShadowBlip/InputPlumber/main/rootfs/usr/share/inputplumber/schema/capability_map_v2.json
+# AYANEO Pocket MICRO 2 front keys (aya-keys gpio-keys in our device tree):
+# Home opens the Steam menu, the AYA Space key Quick Access. LC / RC
+# (KEY_PROG3 / KEY_PROG4) are left unmapped until a tester confirms which
+# keys they are; they still reach the keyboard target.
+version: 2
+kind: CapabilityMap
+name: AYANEO Pocket MICRO 2 front keys
+id: ayaneo_pocketmicro2_keys
+
+mapping:
+  - name: Home -> Steam
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: KEY_PROG1
+          value_type: button
+    target_event:
+      gamepad:
+        button: Guide
+  - name: AYA Space -> Quick Access
+    source_events:
+      - evdev:
+          event_type: KEY
+          event_code: KEY_PROG2
+          value_type: button
+    target_event:
+      gamepad:
+        button: QuickAccess
+
+filtered_events: []

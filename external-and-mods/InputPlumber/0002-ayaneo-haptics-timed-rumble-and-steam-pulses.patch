@@ -1,0 +1,377 @@
+diff --git a/src/input/source/hidraw/ayaneo_haptics.rs b/src/input/source/hidraw/ayaneo_haptics.rs
+--- a/src/input/source/hidraw/ayaneo_haptics.rs
++++ b/src/input/source/hidraw/ayaneo_haptics.rs
+@@ -1,10 +1,17 @@
+-use std::{collections::HashMap, error::Error, ffi::CString, fmt::Debug};
++use std::{
++    collections::HashMap,
++    error::Error,
++    ffi::CString,
++    fmt::Debug,
++    time::{Duration, Instant},
++};
+ 
+ use evdev::{FFEffectData, FFEffectKind};
+ use hidapi::HidDevice;
+ use packed_struct::prelude::*;
+ 
+ use crate::{
++    drivers::steam_deck::hid_report::{CommandType, Intensity, PackedHapticReport, PadSide},
+     input::{
+         capability::Capability,
+         event::native::NativeEvent,
+@@ -19,6 +26,12 @@
+ pub const VID: u16 = 0x4001;
+ pub const PID: u16 = 0x0428;
+ 
++/// Measured on a Pocket FIT: a 90 ms pulse at 0x80 can't be felt and 0xc0
++/// is faint, while short pulses at full level feel crisp. Rumble is scaled
++/// into FLOOR..=0xff so a weak request is still felt, and haptic pulses run
++/// at full level with their strength carried by their length.
++const FLOOR: u8 = 0x90;
++
+ #[derive(PackedStruct, Debug, Default, Copy, Clone, PartialEq)]
+ #[packed_struct(bit_numbering = "msb0", size_bytes = "8")]
+ struct AyaneoRumbleReport {
+@@ -40,16 +53,89 @@
+     reserved_7: u8,
+ }
+ 
++/// Motor levels, 0 = off.
++#[derive(Debug, Default, Copy, Clone, PartialEq)]
++struct Motors {
++    left: u8,
++    right: u8,
++}
++
++/// A rumble request: from `start`, until `until` (or until replaced/stopped).
++#[derive(Debug, Copy, Clone, PartialEq)]
++struct Rumble {
++    level: Motors,
++    start: Instant,
++    until: Option<Instant>,
++}
++
++/// A short haptic pulse on one motor, laid over any rumble.
++#[derive(Debug, Copy, Clone, PartialEq)]
++struct Pulse {
++    level: u8,
++    until: Instant,
++}
++
+ /// Output-only source for the rumble motors exposed by AYANEO DirectInput mode.
+ ///
+ /// The controller accepts an eight-byte HID output report. Zero-based byte 4
+-/// drives the left motor and byte 5 drives the right motor; this layout was
+-/// verified against the physical motors on an AYANEO DirectInput controller.
++/// drives the left motor and byte 5 drives the right motor.
++///
++/// The motors only know "spin at this level", so timing lives here: evdev
++/// effects stop after their replay length, and Steam's trackpad haptics (the
++/// clicks and ticks a Steam Deck plays on its pads) become short pulses on
++/// the motor of that side. `poll()` runs every couple of milliseconds and
++/// sends a new report only when the levels change.
+ pub struct AyaneoHaptics {
+     device: HidDevice,
+     ff_evdev_effects: HashMap<i16, FFEffectData>,
++    rumble: Option<Rumble>,
++    pulses: [Option<Pulse>; 2],
++    sent: Motors,
+ }
+ 
++/// A 16-bit evdev/Steam magnitude as a motor level the motors can produce.
++fn level(magnitude: u16) -> u8 {
++    if magnitude == 0 {
++        return 0;
++    }
++    let span = u32::from(0xff - FLOOR);
++    (u32::from(FLOOR) + u32::from(magnitude) * span / 0xffff) as u8
++}
++
++/// What the motors should do at `now`.
++fn mix(rumble: Option<&Rumble>, pulses: &[Option<Pulse>; 2], now: Instant) -> Motors {
++    let mut out = match rumble {
++        Some(r) if r.start <= now && r.until.is_none_or(|u| now < u) => r.level,
++        _ => Motors::default(),
++    };
++    if let Some(p) = pulses[0].filter(|p| now < p.until) {
++        out.left = out.left.max(p.level);
++    }
++    if let Some(p) = pulses[1].filter(|p| now < p.until) {
++        out.right = out.right.max(p.level);
++    }
++    out
++}
++
++/// A Steam Deck trackpad haptic command as a motor pulse: level and length.
++/// Full level always (lower is barely felt); intensity and gain set the length.
++fn haptic_pulse(report: &PackedHapticReport) -> Option<(u8, Duration)> {
++    let ms = match report.cmd_type {
++        CommandType::Off => return None,
++        CommandType::Tick => 22.0,
++        CommandType::Click => 35.0,
++    };
++    let stretch = match report.intensity {
++        Intensity::Default | Intensity::Short => 1.0,
++        Intensity::Medium => 1.4,
++        Intensity::Long => 1.8,
++        Intensity::Insane => 2.5,
++    };
++    // Gain is in dB, -24..+6; it shortens or lengthens the pulse a little.
++    let gain = 10f32.powf(f32::from(report.gain.clamp(-24, 6)) / 20.0).clamp(0.7, 1.3);
++    Some((0xff, Duration::from_millis((ms * stretch * gain) as u64)))
++}
++
+ impl AyaneoHaptics {
+     pub fn new(device_info: UdevDevice) -> Result<Self, Box<dyn Error + Send + Sync>> {
+         let path = device_info.devnode();
+@@ -69,6 +155,9 @@
+         Ok(Self {
+             device,
+             ff_evdev_effects: HashMap::new(),
++            rumble: None,
++            pulses: [None, None],
++            sent: Motors::default(),
+         })
+     }
+ 
+@@ -79,20 +168,16 @@
+             .unwrap_or(-1)
+     }
+ 
+-    fn build_rumble_report(left_magnitude: u16, right_magnitude: u16) -> AyaneoRumbleReport {
++    fn build_rumble_report(motors: Motors) -> AyaneoRumbleReport {
+         AyaneoRumbleReport {
+-            left_motor: (left_magnitude >> 8) as u8,
+-            right_motor: (right_magnitude >> 8) as u8,
++            left_motor: motors.left,
++            right_motor: motors.right,
+             ..Default::default()
+         }
+     }
+ 
+-    fn rumble(
+-        &self,
+-        left_magnitude: u16,
+-        right_magnitude: u16,
+-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+-        let report = Self::build_rumble_report(left_magnitude, right_magnitude).pack()?;
++    fn write_motors(&self, motors: Motors) -> Result<(), Box<dyn Error + Send + Sync>> {
++        let report = Self::build_rumble_report(motors).pack()?;
+         let written = self.device.write(&report)?;
+         if written != report.len() {
+             return Err(format!(
+@@ -100,10 +185,46 @@
+                 report.len()
+             )
+             .into());
++        }
++        Ok(())
++    }
++
++    /// Bring the motors to what the current requests add up to.
++    fn apply(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
++        let now = Instant::now();
++        if self
++            .rumble
++            .is_some_and(|r| r.until.is_some_and(|u| now >= u))
++        {
++            self.rumble = None;
++        }
++        for p in self.pulses.iter_mut() {
++            if p.is_some_and(|p| now >= p.until) {
++                *p = None;
++            }
+         }
++        let out = mix(self.rumble.as_ref(), &self.pulses, now);
++        if out != self.sent {
++            self.write_motors(out)?;
++            self.sent = out;
++        }
+         Ok(())
+     }
+ 
++    /// Rumble until replaced or stopped (Steam and DualSense-style reports).
++    fn rumble(&mut self, strong: u16, weak: u16) -> Result<(), Box<dyn Error + Send + Sync>> {
++        let level = Motors {
++            left: level(strong),
++            right: level(weak),
++        };
++        self.rumble = (level != Motors::default()).then(|| Rumble {
++            level,
++            start: Instant::now(),
++            until: None,
++        });
++        self.apply()
++    }
++
+     fn process_evdev_ff(
+         &mut self,
+         input_event: evdev::InputEvent,
+@@ -117,7 +238,8 @@
+             };
+ 
+         if value == 0 {
+-            return self.rumble(0, 0);
++            self.rumble = None;
++            return self.apply();
+         }
+ 
+         let effect_id = code.0 as i16;
+@@ -131,11 +253,40 @@
+             weak_magnitude,
+         } = effect.kind
+         {
+-            self.rumble(strong_magnitude, weak_magnitude)?;
++            // Play `value` times: from after the replay delay for the replay
++            // length each (a zero length plays until stopped).
++            let start = Instant::now() + Duration::from_millis(effect.replay.delay.into());
++            let length = u64::from(effect.replay.length) * value.max(1) as u64;
++            let level = Motors {
++                left: level(strong_magnitude),
++                right: level(weak_magnitude),
++            };
++            self.rumble = (level != Motors::default()).then(|| Rumble {
++                level,
++                start,
++                until: (length > 0).then(|| start + Duration::from_millis(length)),
++            });
++            self.apply()?;
+         }
+ 
+         Ok(())
+     }
++
++    fn process_haptic(&mut self, report: PackedHapticReport) -> Result<(), Box<dyn Error + Send + Sync>> {
++        let Some((value, length)) = haptic_pulse(&report) else {
++            return Ok(());
++        };
++        let pulse = Some(Pulse {
++            level: value,
++            until: Instant::now() + length,
++        });
++        match report.side {
++            PadSide::Left => self.pulses[0] = pulse,
++            PadSide::Right => self.pulses[1] = pulse,
++            PadSide::Both => self.pulses = [pulse, pulse],
++        }
++        self.apply()
++    }
+ }
+ 
+ impl Debug for AyaneoHaptics {
+@@ -146,7 +297,7 @@
+ 
+ impl Drop for AyaneoHaptics {
+     fn drop(&mut self) {
+-        if let Err(err) = self.rumble(0, 0) {
++        if let Err(err) = self.write_motors(Motors::default()) {
+             log::debug!("Failed to stop AYANEO haptics during shutdown: {err:?}");
+         }
+     }
+@@ -154,6 +305,10 @@
+ 
+ impl SourceInputDevice for AyaneoHaptics {
+     fn poll(&mut self) -> Result<Vec<NativeEvent>, InputError> {
++        // Timed rumble and haptic pulses end here.
++        if let Err(err) = self.apply() {
++            log::debug!("Failed to update AYANEO haptics: {err:?}");
++        }
+         Ok(vec![])
+     }
+ 
+@@ -183,11 +338,12 @@
+                 report.left_speed.to_primitive(),
+                 report.right_speed.to_primitive(),
+             )?),
++            OutputEvent::SteamDeckHaptics(report) => Ok(self.process_haptic(report)?),
+             OutputEvent::GenericRumble {
+                 weak_magnitude,
+                 strong_magnitude,
+             } => Ok(self.rumble(strong_magnitude, weak_magnitude)?),
+-            OutputEvent::Uinput(_) | OutputEvent::SteamDeckHaptics(_) => Ok(()),
++            OutputEvent::Uinput(_) => Ok(()),
+         }
+     }
+ 
+@@ -212,22 +368,26 @@
+     }
+ 
+     fn stop(&mut self) -> Result<(), OutputError> {
+-        self.rumble(0, 0)?;
++        self.rumble = None;
++        self.pulses = [None, None];
+         self.ff_evdev_effects.clear();
++        self.apply()?;
+         Ok(())
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
++    use std::time::{Duration, Instant};
++
+     use packed_struct::PackedStruct;
+ 
+-    use super::AyaneoHaptics;
++    use super::{level, mix, AyaneoHaptics, Motors, Pulse, Rumble, FLOOR};
+ 
+     #[test]
+     fn builds_left_and_right_motor_report() {
+         assert_eq!(
+-            AyaneoHaptics::build_rumble_report(0x8000, 0x6000)
++            AyaneoHaptics::build_rumble_report(Motors { left: 0x80, right: 0x60 })
+                 .pack()
+                 .unwrap(),
+             [0x00, 0x00, 0x00, 0x00, 0x80, 0x60, 0x00, 0x00]
+@@ -235,20 +395,42 @@
+     }
+ 
+     #[test]
+-    fn uses_high_byte_of_each_evdev_magnitude() {
++    fn rumble_is_scaled_into_what_the_motors_produce() {
++        assert_eq!(level(0), 0);
++        assert_eq!(level(0x0001), FLOOR);
++        assert_eq!(level(0xffff), 0xff);
++        let mid = level(0x8000);
++        assert!(mid > FLOOR && mid < 0xff);
++    }
++
++    #[test]
++    fn timed_rumble_ends() {
++        let now = Instant::now();
++        let r = Rumble {
++            level: Motors { left: 0x90, right: 0x40 },
++            start: now,
++            until: Some(now + Duration::from_millis(200)),
++        };
++        assert_eq!(mix(Some(&r), &[None, None], now + Duration::from_millis(100)), r.level);
+         assert_eq!(
+-            AyaneoHaptics::build_rumble_report(0x12ff, 0xab01)
+-                .pack()
+-                .unwrap(),
+-            [0x00, 0x00, 0x00, 0x00, 0x12, 0xab, 0x00, 0x00]
++            mix(Some(&r), &[None, None], now + Duration::from_millis(200)),
++            Motors::default()
+         );
+     }
+ 
+     #[test]
+-    fn builds_stop_report() {
++    fn pulse_lies_over_rumble_on_its_side() {
++        let now = Instant::now();
++        let r = Rumble {
++            level: Motors { left: 0x40, right: 0x40 },
++            start: now,
++            until: None,
++        };
++        let p = [None, Some(Pulse { level: 0xb0, until: now + Duration::from_millis(30) })];
++        assert_eq!(mix(Some(&r), &p, now), Motors { left: 0x40, right: 0xb0 });
+         assert_eq!(
+-            AyaneoHaptics::build_rumble_report(0, 0).pack().unwrap(),
+-            [0x00; 8]
++            mix(Some(&r), &p, now + Duration::from_millis(31)),
++            Motors { left: 0x40, right: 0x40 }
+         );
+     }
+ }

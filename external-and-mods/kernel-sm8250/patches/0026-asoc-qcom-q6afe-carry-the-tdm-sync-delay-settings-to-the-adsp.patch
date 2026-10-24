@@ -1,0 +1,95 @@
+ASoC: qcom: q6afe: carry the TDM sync/delay settings to the ADSP
+
+q6afe-dai parses qcom,tdm-data-out, qcom,tdm-invert-sync and
+qcom,tdm-data-delay out of the DT into q6afe_dai_priv_data, and then
+drops them on the floor: q6tdm_hw_params() copies sync_src, sync_mode
+and data_align into struct q6afe_tdm_cfg, but that struct has no field
+for the other three, so q6afe_tdm_port_prepare() leaves
+ctrl_data_out_enable, ctrl_invert_sync_pulse and ctrl_sync_data_delay
+zero in the AFE_PARAM_ID_TDM_CONFIG payload.
+
+Every TDM device whose frame sync is inverted, or whose data is delayed
+by a bit relative to the sync pulse, therefore gets a port framed the
+way the ADSP defaults rather than the way its DT asked for. On the two
+CS35L41 amplifiers of sm8250-xiaomi-alioth -- qcom,tdm-invert-sync = <1>
+and qcom,tdm-data-delay = <1> -- that is the difference between audio
+and silence, and it is a silent difference: the port starts, the bit
+clock runs, the amps lock their PLL to it and report no fault.
+
+Add the three fields and carry them through.
+
+Also dump the assembled config under dev_dbg before handing it to the ADSP.
+AFE_PORT_CMD_SET_PARAM_V2 answers any bad TDM parameter with one
+undifferentiated ADSP_EBADPARAM, so without the payload in front of you the
+only way to find the field it disliked is to change one and reflash.
+
+--- a/sound/soc/qcom/qdsp6/q6afe.h
++++ b/sound/soc/qcom/qdsp6/q6afe.h
+@@ -192,6 +192,9 @@
+ 	u16	nslots_per_frame;
+ 	u16	slot_width;
+ 	u16	slot_mask;
++	u16	data_out_enable;
++	u16	invert_sync;
++	u16	data_delay;
+ 	u32	data_align_type;
+ 	u16	ch_mapping[AFE_MAX_CHAN_COUNT];
+ };
+--- a/sound/soc/qcom/qdsp6/q6afe.c
++++ b/sound/soc/qcom/qdsp6/q6afe.c
+@@ -1362,6 +1362,9 @@
+ 	pcfg->tdm_cfg.sync_mode = cfg->sync_mode;
+ 	pcfg->tdm_cfg.sync_src = cfg->sync_src;
+ 	pcfg->tdm_cfg.nslots_per_frame = cfg->nslots_per_frame;
++	pcfg->tdm_cfg.ctrl_data_out_enable = cfg->data_out_enable;
++	pcfg->tdm_cfg.ctrl_invert_sync_pulse = cfg->invert_sync;
++	pcfg->tdm_cfg.ctrl_sync_data_delay = cfg->data_delay;
+ 
+ 	pcfg->tdm_cfg.slot_width = cfg->slot_width;
+ 	pcfg->tdm_cfg.slot_mask = cfg->slot_mask;
+--- a/sound/soc/qcom/qdsp6/q6afe-dai.c
++++ b/sound/soc/qcom/qdsp6/q6afe-dai.c
+@@ -278,6 +278,9 @@
+ 	tdm->data_align_type = dai_data->priv[dai->id].data_align;
+ 	tdm->sync_src = dai_data->priv[dai->id].sync_src;
+ 	tdm->sync_mode = dai_data->priv[dai->id].sync_mode;
++	tdm->data_out_enable = dai_data->priv[dai->id].data_out_enable;
++	tdm->invert_sync = dai_data->priv[dai->id].invert_sync;
++	tdm->data_delay = dai_data->priv[dai->id].data_delay;
+ 
+ 	return 0;
+ }
+@@ -420,10 +423,30 @@
+ 			return rc;
+ 		}
+ 		break;
+-	case PRIMARY_TDM_RX_0 ... QUINARY_TDM_TX_7:
+-		q6afe_tdm_port_prepare(dai_data->port[dai->id],
+-					&dai_data->port_config[dai->id].tdm);
++	case PRIMARY_TDM_RX_0 ... QUINARY_TDM_TX_7: {
++		struct q6afe_tdm_cfg *t = &dai_data->port_config[dai->id].tdm;
++
++		/*
++		 * The ADSP answers a bad TDM parameter with one undifferentiated
++		 * ADSP_EBADPARAM on AFE_PORT_CMD_SET_PARAM_V2, so the only way to
++		 * tell which field it disliked is to see what was sent. Enable
++		 * with: echo 'file q6afe-dai.c +p' > \
++		 *   /sys/kernel/debug/dynamic_debug/control
++		 */
++		dev_dbg(dai->dev,
++			"TDM port %d: %u ch, %u Hz, %u bit, fmt %u, sync mode %u src %u, %u slots of %u, mask 0x%x, data_out %u, invert_sync %u, delay %u, align %u, chmap %u %u %u %u %u %u %u %u\n",
++			dai->id, t->num_channels, t->sample_rate, t->bit_width,
++			t->data_format, t->sync_mode, t->sync_src,
++			t->nslots_per_frame, t->slot_width, t->slot_mask,
++			t->data_out_enable, t->invert_sync, t->data_delay,
++			t->data_align_type,
++			t->ch_mapping[0], t->ch_mapping[1], t->ch_mapping[2],
++			t->ch_mapping[3], t->ch_mapping[4], t->ch_mapping[5],
++			t->ch_mapping[6], t->ch_mapping[7]);
++
++		q6afe_tdm_port_prepare(dai_data->port[dai->id], t);
+ 		break;
++	}
+ 	case WSA_CODEC_DMA_RX_0 ... RX_CODEC_DMA_RX_7:
+ 		q6afe_cdc_dma_port_prepare(dai_data->port[dai->id],
+ 					   &dai_data->port_config[dai->id].dma_cfg);

@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""Lenovo Legion Y700 Gen 5: hold volume up + volume down for 10 seconds to
+go back to Android (gen5-android), even with Game Mode frozen, as long as the
+kernel runs. The keys come from the power-key PMIC and the GPIO keys; they're
+read straight from evdev, without grabbing them, so the volume still works.
+InputPlumber can grab the physical keys and send them again from its own
+virtual keyboard, which appears later, so the devices are looked up again
+every few seconds and the virtual one is read too.
+"""
+import glob
+import os
+import select
+import struct
+import subprocess
+import time
+
+HOLD = 10.0
+EV_KEY, KEY_VOLUMEDOWN, KEY_VOLUMEUP = 1, 114, 115
+FMT = "llHHi"
+SIZE = struct.calcsize(FMT)
+
+
+def key_devices():
+    devs = []
+    for d in glob.glob("/sys/class/input/event*"):
+        try:
+            caps = open(f"{d}/device/capabilities/key").read().split()
+        except OSError:
+            continue
+        # the key bitmap, last word first: bits 114 and 115 live in word 1
+        words = [int(w, 16) for w in reversed(caps)]
+        bits = 0
+        for i, w in enumerate(words):
+            bits |= w << (64 * i)
+        if bits >> KEY_VOLUMEDOWN & 1 or bits >> KEY_VOLUMEUP & 1:
+            devs.append("/dev/input/" + os.path.basename(d))
+    return devs
+
+
+def main():
+    fds = {}
+
+    def rescan():
+        for p in key_devices():
+            if p in fds.values():
+                continue
+            try:
+                fds[os.open(p, os.O_RDONLY | os.O_NONBLOCK)] = p
+            except OSError:
+                pass
+
+    down = set()
+    since = None
+    scanned = 0.0
+    while True:
+        if time.monotonic() - scanned >= 5:
+            rescan()
+            scanned = time.monotonic()
+        if not fds:
+            time.sleep(1)
+            continue
+        r, _, _ = select.select(list(fds), [], [], 0.5)
+        for fd in r:
+            try:
+                data = os.read(fd, SIZE * 64)
+            except OSError:
+                # the device went away (InputPlumber restarting): drop it
+                os.close(fd)
+                fds.pop(fd, None)
+                continue
+            for off in range(0, len(data) - SIZE + 1, SIZE):
+                _, _, typ, code, val = struct.unpack_from(FMT, data, off)
+                if typ != EV_KEY or code not in (KEY_VOLUMEDOWN, KEY_VOLUMEUP):
+                    continue
+                (down.add if val else down.discard)(code)
+        both = {KEY_VOLUMEDOWN, KEY_VOLUMEUP} <= down
+        if both and since is None:
+            since = time.monotonic()
+        elif not both:
+            since = None
+        if since is not None and time.monotonic() - since >= HOLD:
+            subprocess.run(["/usr/lib/steamos-arm/gen5-android"])
+            since = None
+
+
+if __name__ == "__main__":
+    main()

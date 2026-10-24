@@ -1,0 +1,16 @@
+[Unit]
+Description=Keep the screen brightness across restarts (Lenovo tablets)
+ConditionFirmware=|device-tree-compatible(lenovo,tb321fu)
+ConditionFirmware=|device-tree-compatible(lenovo,elden)
+ConditionFirmware=|device-tree-compatible(lenovo,baldur)
+After=systemd-udev-settle.service local-fs.target steamos-arm-tablet-charger.service
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/steamos-arm/tablet-backlight restore
+ExecStop=/usr/lib/steamos-arm/tablet-backlight save
+
+[Install]
+WantedBy=multi-user.target

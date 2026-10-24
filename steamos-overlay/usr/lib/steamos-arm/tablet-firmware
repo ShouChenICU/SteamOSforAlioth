@@ -1,0 +1,429 @@
+#!/usr/bin/env python3
+"""Copy a tablet's firmware out of its own Android partitions.
+
+    tablet-firmware MANIFEST DEST [--root /]
+
+Some tablets (Lenovo Legion Y700 Gen 4) can't have their firmware shipped:
+it is signed for the device and only lives in its stock Android. MANIFEST
+lists each file Linux needs ({"files": [{"path", "size", "sha256"}]}); this
+mounts the Android partitions that hold firmware read-only, finds every file
+by size and SHA-256 (names differ between Android and Linux), and copies the
+matches to DEST/<path>. Nothing on the Android side is written.
+
+The hashes come from one Android release. Another release (an OTA, another
+region) signs the same files differently, so what no hash finds is then
+taken by name from the tablet's own Android, active slot first: its own
+files are the ones signed for it. Split firmware (X.mdt) brings its X.bNN
+segments along.
+
+Partitions searched: the firmware ones by name (modem, bluetooth, dsp,
+persist is left alone), and vendor / odm / vendor_dlkm from the dynamic
+"super" partition, read from its LP metadata. Exits 0 with the missing
+files listed when some aren't found, so a partial set still boots.
+"""
+import argparse
+import hashlib
+import json
+import os
+import struct
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+PLAIN = ("modem", "bluetooth", "dsp", "qupfw", "vendor_firmware")
+IN_SUPER = ("vendor", "odm", "vendor_dlkm", "odm_dlkm")
+SECTOR = 512
+
+
+def log(msg):
+    print(f"tablet-firmware: {msg}", flush=True)
+
+
+def by_partlabel():
+    out = {}
+    base = Path("/dev/disk/by-partlabel")
+    if base.is_dir():
+        for p in base.iterdir():
+            out[p.name] = str(p.resolve())
+    return out
+
+
+def active_suffix(labels):
+    """_a or _b. The kernel's cmdline is built in, so the bootloader's
+    androidboot.slot_suffix never arrives: read the slot state from the GPT
+    attributes of boot_a / boot_b instead (bit 50: active)."""
+    try:
+        for arg in Path("/proc/cmdline").read_text().split():
+            if arg.startswith("androidboot.slot_suffix="):
+                return arg.split("=", 1)[1]
+    except OSError:
+        pass
+    for s in ("_a", "_b"):
+        dev = labels.get("boot" + s)
+        if not dev:
+            continue
+        part = Path(dev).name
+        try:
+            num = Path(f"/sys/class/block/{part}/partition").read_text().strip()
+            disk = "/dev/" + Path(f"/sys/class/block/{part}").resolve().parent.name
+            out = subprocess.run(["sfdisk", "--part-attrs", disk, num],
+                                 capture_output=True, text=True).stdout
+        except OSError:
+            continue
+        bits = set()
+        for word in out.replace(" ", ",").split(","):
+            word = word.removeprefix("GUID:")
+            if word.isdigit():
+                bits.add(int(word))
+        if 50 in bits:
+            return s
+    return ""
+
+
+SUFFIX = None
+
+
+def slot_names(labels, name):
+    """name_a / name_b / name, the active slot's first when we can tell."""
+    global SUFFIX
+    if SUFFIX is None:
+        SUFFIX = active_suffix(by_partlabel())
+        log(f"active slot: {SUFFIX or 'unknown'}")
+    suffix = SUFFIX
+    order = [name + suffix] if suffix else []
+    order += [name + "_a", name + "_b", name]
+    seen = []
+    for n in order:
+        if n in labels and n not in seen:
+            seen.append(n)
+    return seen
+
+
+def lp_partitions(dev):
+    """{name: [(start_sector, num_sectors), ...]} from a super partition."""
+    with open(dev, "rb") as f:
+        f.seek(4096)
+        geo = f.read(52)
+        magic, _size = struct.unpack_from("<II", geo)
+        if magic != 0x616C4467:
+            raise ValueError("no LP geometry")
+        max_size, slots, _block = struct.unpack_from("<III", geo, 40)
+        f.seek(4096 * 3)  # reserved 4096, geometry, backup geometry, then slot 0
+        hdr = f.read(256)
+        hmagic, major, minor, hsize = struct.unpack_from("<IHHI", hdr)
+        if hmagic != 0x414C5030:
+            raise ValueError("no LP metadata header")
+        tables_size = struct.unpack_from("<I", hdr, 44)[0]
+        parts_d = struct.unpack_from("<III", hdr, 80)
+        ext_d = struct.unpack_from("<III", hdr, 92)
+        f.seek(4096 * 3 + hsize)
+        tables = f.read(tables_size)
+    extents = []
+    off, n, size = ext_d
+    for i in range(n):
+        num, ttype, data, _src = struct.unpack_from("<QIQI", tables, off + i * size)
+        extents.append((num, ttype, data))
+    parts = {}
+    off, n, size = parts_d
+    for i in range(n):
+        raw = tables[off + i * size: off + (i + 1) * size]
+        name = raw[:36].split(b"\0")[0].decode()
+        _attrs, first, count = struct.unpack_from("<III", raw, 36)
+        runs = [(e[2], e[0]) for e in extents[first:first + count] if e[1] == 0]
+        if runs:
+            parts[name] = runs
+    return parts
+
+
+class Mounts:
+    def __init__(self):
+        self.base = Path(tempfile.mkdtemp(prefix="tablet-fw-"))
+        self.points, self.loops, self.dms = [], [], []
+
+    def run(self, *cmd):
+        return subprocess.run(cmd, capture_output=True, text=True)
+
+    def mount(self, dev, label):
+        mp = self.base / label
+        mp.mkdir()
+        for fs in (None, "erofs", "ext4", "vfat"):
+            cmd = ["mount", "-o", "ro"] + (["-t", fs] if fs else []) + [dev, str(mp)]
+            if fs == "erofs":
+                self.run("modprobe", "erofs")
+            if self.run(*cmd).returncode == 0:
+                self.points.append(mp)
+                return mp
+        mp.rmdir()
+        return None
+
+    def from_super(self, superdev, name, runs):
+        if len(runs) == 1:
+            start, num = runs[0]
+            r = self.run("losetup", "-f", "--show", "-r", "-o", str(start * SECTOR),
+                         "--sizelimit", str(num * SECTOR), superdev)
+            if r.returncode != 0:
+                return None
+            self.loops.append(r.stdout.strip())
+            return r.stdout.strip()
+        table, pos = [], 0
+        for start, num in runs:
+            table.append(f"{pos} {num} linear {superdev} {start}")
+            pos += num
+        dm = f"tablet-fw-{name}"
+        self.run("modprobe", "dm-mod")
+        r = subprocess.run(["dmsetup", "create", "-r", dm], input="\n".join(table) + "\n",
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            log(f"{name}: {len(runs)} extents and no device-mapper, skipped")
+            return None
+        self.dms.append(dm)
+        return f"/dev/mapper/{dm}"
+
+    def close(self):
+        for mp in reversed(self.points):
+            self.run("umount", str(mp))
+        for dm in self.dms:
+            self.run("dmsetup", "remove", dm)
+        for lo in self.loops:
+            self.run("losetup", "-d", lo)
+        for p in sorted(self.base.glob("*"), reverse=True):
+            try:
+                p.rmdir()
+            except OSError:
+                pass
+        try:
+            self.base.rmdir()
+        except OSError:
+            pass
+
+
+def squash(mdt):
+    """Qualcomm split image (X.mdt + X.bNN) back into one ELF, each segment
+    at its p_offset: what Linux loads as X.mbn."""
+    data = Path(mdt).read_bytes()
+    if data[:4] != b"\x7fELF":
+        raise ValueError("not an ELF")
+    is64 = data[4] == 2
+    phoff = struct.unpack_from("<Q" if is64 else "<I", data, 0x20 if is64 else 0x1c)[0]
+    phentsize, phnum = struct.unpack_from("<HH", data, 0x36 if is64 else 0x2a)
+    img = bytearray(data[:phoff + phnum * phentsize])
+    for i in range(phnum):
+        ph = phoff + i * phentsize
+        if is64:
+            off, size = struct.unpack_from("<Q", data, ph + 8)[0], struct.unpack_from("<Q", data, ph + 0x20)[0]
+        else:
+            off, size = struct.unpack_from("<I", data, ph + 4)[0], struct.unpack_from("<I", data, ph + 0x10)[0]
+        if not size:
+            continue
+        seg = Path(str(mdt)[:-4] + f".b{i:02d}")
+        if seg.exists():
+            chunk = seg.read_bytes()
+        elif off + size <= len(data):
+            chunk = data[off:off + size]
+        else:
+            raise ValueError(f"missing {seg.name}")
+        if len(chunk) != size:
+            raise ValueError(f"{seg.name} has the wrong size")
+        if len(img) < off:
+            img += bytes(off - len(img))
+        img[off:off + size] = chunk
+    return bytes(img)
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("manifest")
+    ap.add_argument("dest")
+    ap.add_argument("--also", action="append", default=[],
+                    help="another directory to search (e.g. /usr/lib/firmware)")
+    a = ap.parse_args()
+    if os.geteuid() != 0:
+        sys.exit("tablet-firmware: needs root")
+
+    rows = [r for r in json.load(open(a.manifest))["files"] if not r.get("generated")]
+    sizes = {r["size"] for r in rows}
+    # Searched by content; several paths can share one (the Wi-Fi's tmel.bin
+    # is Bluetooth's tmel_peach_20.elf), and each of them gets written.
+    wanted = {r["sha256"]: r for r in rows}
+    found = {}
+    dest = Path(a.dest)
+
+    # What's already in place from an earlier run counts.
+    for r in rows:
+        t = dest / r["path"]
+        if t.is_file() and t.stat().st_size == r["size"] and sha256(t) == r["sha256"]:
+            found[r["sha256"]] = t
+
+    labels = by_partlabel()
+    m = Mounts()
+    copied = 0
+    try:
+        trees = [Path(p) for p in a.also]
+        android = []  # the tablet's own partitions, active slot first
+        for rank in (0, 1):
+            for name in PLAIN:
+                for label in slot_names(labels, name)[rank:rank + 1]:
+                    mp = m.mount(labels[label], label)
+                    if mp:
+                        android.append(mp)
+                        log(f"searching {label}")
+        for label in slot_names(labels, "super")[:1]:
+            try:
+                parts = lp_partitions(labels[label])
+            except (OSError, ValueError, struct.error) as e:
+                log(f"super: {e}")
+                parts = {}
+            for rank in (0, 1):
+                for name in IN_SUPER:
+                    for pname in slot_names(parts, name)[rank:rank + 1]:
+                        dev = m.from_super(labels[label], pname, parts[pname])
+                        mp = m.mount(dev, pname) if dev else None
+                        if mp:
+                            android.append(mp)
+                            log(f"searching {pname} (super)")
+        trees += android
+        for tree in trees:
+            for root, _dirs, files in os.walk(tree):
+                for fn in files:
+                    p = Path(root) / fn
+                    try:
+                        if p.is_symlink() or p.stat().st_size not in sizes:
+                            continue
+                        d = sha256(p)
+                    except OSError:
+                        continue
+                    if d in wanted and d not in found:
+                        found[d] = p
+            if len(found) == len(wanted):
+                break
+        byname = by_name(android, [r for r in rows if r["sha256"] not in found])
+        for r in rows:
+            src = found.get(r["sha256"])
+            t = dest / r["path"]
+            if src is None or src == t:
+                continue
+            if t.is_file() and t.stat().st_size == r["size"] and sha256(t) == r["sha256"]:
+                continue
+            t.parent.mkdir(parents=True, exist_ok=True)
+            tmp = t.with_name(t.name + ".part")
+            with open(src, "rb") as fi, open(tmp, "wb") as fo:
+                fo.write(fi.read())
+            os.replace(tmp, t)
+            copied += 1
+        renamed = 0
+        for path, srcs in list(byname.items()):
+            for src, rel in srcs:
+                t = dest / rel
+                if src.suffix.lower() == ".mdt" and rel.lower().endswith(".mbn"):
+                    try:
+                        blob = squash(src)
+                    except (OSError, ValueError, struct.error) as e:
+                        log(f"{rel}: can't join {src}: {e}")
+                        del byname[path]
+                        break
+                else:
+                    blob = None
+                if blob is None and t.is_file() and t.stat().st_size == src.stat().st_size \
+                        and sha256(t) == sha256(src):
+                    continue
+                if blob is not None and t.is_file() and t.read_bytes() == blob:
+                    continue
+                t.parent.mkdir(parents=True, exist_ok=True)
+                tmp = t.with_name(t.name + ".part")
+                with open(tmp, "wb") as fo:
+                    fo.write(blob if blob is not None else src.read_bytes())
+                os.replace(tmp, t)
+                renamed += 1
+            else:
+                log(f"{path}: this tablet's own copy (another Android release), from {srcs[0][0]}"
+                    + (" (joined from its split parts)" if srcs[0][0].suffix.lower() == ".mdt"
+                       and path.lower().endswith(".mbn") else ""))
+    finally:
+        m.close()
+
+    covered = {rel for srcs in byname.values() for _s, rel in srcs}
+    missing = [r["path"] for r in rows if r["sha256"] not in found and r["path"] not in covered]
+    summary = (f"{len(rows) - len(missing)}/{len(rows)} files in {dest} "
+               f"({copied} copied now, {len(byname)} by name, {renamed} written)")
+    log(summary)
+    for p in missing:
+        log(f"missing: {p}")
+    # On screen during boot too: on the tablets that is the only log a tester sees.
+    console(f"tablet firmware: {len(rows) - len(missing)}/{len(rows)}, by name {len(byname)}"
+            + (f", missing: {' '.join(missing)}" if missing else ""))
+
+
+def console(msg):
+    try:
+        with open("/dev/kmsg", "w") as k:
+            k.write(f"<3>tablet-firmware: {msg}\n")
+    except OSError:
+        pass
+
+
+def by_name(trees, rows):
+    """{manifest path: [(source, dest path)]} for files no hash found: the
+    file of the same name in the tablet's own Android, from the first tree
+    (active slot first) that has exactly one, or one under a folder named
+    like the Linux path's (ath12k/PEACH/... -> .../peach/...). X.mdt brings
+    its X.bNN segments."""
+    want = {}
+    for r in rows:
+        want.setdefault(Path(r["path"]).name.lower(), []).append(r)
+    # Some releases ship only the split form (X.mdt + X.bNN) of what Linux
+    # loads as one X.mbn (the GPU's zap): take that and squash it.
+    split = {}
+    for r in rows:
+        n = Path(r["path"]).name.lower()
+        if n.endswith(".mbn"):
+            split.setdefault(n[:-4] + ".mdt", []).append(r)
+    hits = {}  # name -> {tree index: [paths]}
+    for i, tree in enumerate(trees):
+        for root, _dirs, files in os.walk(tree):
+            for fn in files:
+                if fn.lower() in want or fn.lower() in split:
+                    p = Path(root) / fn
+                    if p.is_file() and not p.is_symlink():
+                        hits.setdefault(fn.lower(), {}).setdefault(i, []).append(p)
+    out = {}
+    for name, rs in list(want.items()) + list(split.items()):
+        for r in rs:
+            if r["path"] in out:
+                continue
+            hint = [x.lower() for x in Path(r["path"]).parts[:-1]]
+            pick = None
+            for i in sorted(hits.get(name, {})):
+                cands = hits[name][i]
+                if len(cands) > 1:
+                    cands = [c for c in cands if any(h in (x.lower() for x in c.parts) for h in hint)]
+                if len(cands) == 1:
+                    pick = cands[0]
+                    break
+            if pick is None:
+                continue
+            srcs = [(pick, r["path"])]
+            if pick.suffix.lower() == ".mdt" and r["path"].lower().endswith(".mbn"):
+                pass  # written squashed, one file
+            elif pick.suffix.lower() == ".mdt":
+                stem = pick.stem
+                for seg in sorted(pick.parent.iterdir()):
+                    if seg.stem == stem and len(seg.suffix) == 4 and seg.suffix[1].lower() == "b" \
+                            and seg.suffix[2:].isdigit():
+                        srcs.append((seg, str(Path(r["path"]).parent / seg.name)))
+            out[r["path"]] = srcs
+    # Segments a .mdt already brings along aren't separate picks.
+    brought = {rel for srcs in out.values() for _s, rel in srcs[1:]}
+    return {k: v for k, v in out.items() if k not in brought}
+
+
+if __name__ == "__main__":
+    main()

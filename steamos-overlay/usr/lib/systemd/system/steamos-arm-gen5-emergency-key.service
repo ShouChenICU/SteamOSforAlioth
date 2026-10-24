@@ -1,0 +1,12 @@
+[Unit]
+Description=Lenovo Legion Y700 Gen 5: hold volume up + down for 10 s to go back to Android
+ConditionFirmware=device-tree-compatible(lenovo,baldur)
+ConditionPathExists=/etc/steamos-arm/android-boot.sha256
+
+[Service]
+ExecStart=/usr/lib/steamos-arm/gen5-emergency-key
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

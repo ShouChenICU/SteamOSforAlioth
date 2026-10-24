@@ -1,0 +1,25 @@
+#!/bin/bash
+# Lenovo tablets: the battery firmware keeps the charge limit Android last set
+# (Lenovo's battery care, 70-80 %) and puts it back some time after boot, so
+# the tablet never charged to full. Set the thresholds to 95-100 % until they
+# hold. Runs before UPower, so a limit set in Desktop Mode still applies.
+bat=""
+for d in /sys/class/power_supply/*; do
+  [[ "$(cat "$d/type" 2>/dev/null)" == Battery && "$(cat "$d/scope" 2>/dev/null || echo System)" != Device \
+     && -w "$d/charge_control_end_threshold" ]] && { bat=$d; break; }
+done
+[[ -n "$bat" ]] || exit 0
+held=0
+for _ in $(seq 60); do
+  if [[ "$(cat "$bat/charge_control_end_threshold" 2>/dev/null)" == 100 ]]; then
+    (( ++held >= 2 )) && exit 0
+  else
+    held=0
+    # End first: the firmware refuses a start above the current end.
+    echo 100 >"$bat/charge_control_end_threshold" 2>/dev/null
+    [[ -w "$bat/charge_control_start_threshold" ]] && echo 95 >"$bat/charge_control_start_threshold" 2>/dev/null
+  fi
+  sleep 2
+done
+echo "tablet-charge-full: the charge limit did not hold" >&2
+exit 0

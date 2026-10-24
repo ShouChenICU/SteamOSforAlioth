@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ShadowBlip/InputPlumber/main/rootfs/usr/share/inputplumber/schema/composite_device_v1.json
+# AYANEO Pocket MICRO 2 (SM8250) -> virtual Steam Deck controller + keyboard.
+# The pad is USB (4001:0428 on the host-only USB 2 port); its rumble goes
+# through the hidraw source, the same AYANEO haptics path as the Pocket FIT.
+version: 1
+kind: CompositeDevice
+name: AYANEO Pocket MICRO 2
+
+matches:
+  - udev:
+      sys_path: /sys/firmware/devicetree/base
+      attributes:
+        - name: model
+          value: AYANEO Pocket MICRO 2
+
+single_source: false
+
+source_devices:
+  - group: gamepad
+    evdev:
+      vendor_id: "4001"
+      product_id: "0428"
+      handler: event*
+    unique: false
+    capability_map_id: ayaneo_pocketmicro2
+  - group: gamepad
+    hidraw:
+      vendor_id: 0x4001
+      product_id: 0x0428
+      interface_num: 0
+  - group: keyboard
+    evdev:
+      name: aya-keys
+      handler: event*
+    capability_map_id: ayaneo_pocketmicro2_keys
+
+options:
+  auto_manage: true
+
+target_devices:
+  - deck-uhid
+  - keyboard

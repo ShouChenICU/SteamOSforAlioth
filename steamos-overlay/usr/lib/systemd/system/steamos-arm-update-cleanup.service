@@ -1,0 +1,15 @@
+[Unit]
+Description=Free HOME from finished SteamOS ARM updates
+# After a restart that installed or rolled back an update: its download,
+# backup and boot images stay on HOME until this clears them.
+RequiresMountsFor=/home
+ConditionPathIsDirectory=/home/.konkr-updates
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/share/konkr-update/konkr-update.py cleanup
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

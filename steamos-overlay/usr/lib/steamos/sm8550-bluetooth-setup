@@ -1,0 +1,23 @@
+#!/bin/bash
+# Power the WCN7850 UART HCI. RFCOMM is not in this kernel (HFP profiles
+# fail); A2DP/LE still need the adapter up for Steam's BT list.
+# Plasma is not required — this is bluez + rfkill only.
+set -u
+modprobe -q bluetooth btqca hci_uart 2>/dev/null || true
+rfkill unblock bluetooth wifi 2>/dev/null || true
+# Power it through bluetoothd (mgmt), not with `hciconfig hci0 up`: the
+# legacy ioctl clears HCI_AUTO_OFF behind mgmt's back, so bluetoothd never
+# does its own power-on. On the Thor paired pads then didn't reconnect after
+# a reboot until bluetooth.service was restarted, and on the REDMAGIC 6 LE
+# pads failed to pair ("security requested but not available", HOG refused).
+# bluetoothctl segfaults there without a terminal; use busctl.
+for _ in $(seq 20); do
+  busctl set-property org.bluez /org/bluez/hci0 org.bluez.Adapter1 \
+    Powered b true 2>/dev/null && exit 0
+  sleep 0.5
+done
+# bluetoothd never answered: bring the HCI up directly so it's at least on.
+if command -v hciconfig >/dev/null 2>&1; then
+  timeout 5 hciconfig hci0 up 2>/dev/null || true
+fi
+exit 0

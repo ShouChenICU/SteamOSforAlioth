@@ -1,0 +1,25 @@
+#!/bin/bash
+# Lenovo tablets: keep the screen brightness across restarts.
+#   tablet-backlight restore | save
+# The Gen 4's backlight starts at its device tree default (511 of 4095, 12 %),
+# and the image doesn't hand backlights to systemd-backlight, so every boot
+# came up dim and Desktop Mode stayed there (Game Mode sets Steam's level).
+set -u
+D=/var/lib/steamos-arm/backlight
+mkdir -p "$D"
+for bl in /sys/class/backlight/*; do
+  [ -e "$bl/brightness" ] || continue
+  n=${bl##*/}; max=$(cat "$bl/max_brightness")
+  case "$1" in
+    save)
+      cur=$(cat "$bl/brightness")
+      # Not a dark screen (sleep, charger mode): that's not the user's level.
+      [ "$cur" -ge $((max / 20)) ] && echo "$cur" >"$D/$n" ;;
+    restore)
+      v=$(cat "$D/$n" 2>/dev/null || echo $((max * 6 / 10)))
+      [ "$v" -ge $((max / 20)) ] 2>/dev/null || v=$((max * 6 / 10))
+      [ "$v" -le "$max" ] || v=$max
+      echo "$v" >"$bl/brightness" ;;
+  esac
+done
+exit 0

@@ -1,0 +1,212 @@
+ASoC: qcom: sm8250: configure TDM backends
+
+sm8250_snd_startup() only ever knew about MI2S ports, and nothing in the
+driver called snd_soc_dai_set_tdm_slot(). A TDM dai-link on this card
+therefore reached q6afe with nslots_per_frame and slot_width still zero,
+and the ADSP rejected the port outright:
+
+  qcom-q6afe: cmd = 0x100ef returned error = 0x2
+  qcom-q6afe: AFE enable for port 0x9020 failed -22
+  q6afe-dai: ASoC error (-22): at snd_soc_dai_prepare() on TERTIARY_TDM_RX_0
+
+snd_pcm_open() returns EINVAL for such a card, so userspace sees no
+usable profile at all rather than a silent one.
+
+Give tertiary TDM RX a startup branch -- bit clock on TER_TDM_IBIT, DSP_A
+framing on the codec side to match qcom,tdm-data-delay = <1>, inverted
+frame sync to match qcom,tdm-invert-sync = <1> -- and add a hw_params op
+that sets two 16-bit slots on the CPU dai and hands each codec dai one
+slot in dai-link order, so a pair of amplifiers on one bus plays two
+channels instead of both reading slot 0.
+
+Needed by sm8250-xiaomi-alioth, whose two CS35L41 amplifiers sit on
+tertiary TDM.
+
+The backend format needs pinning too. sm8250_be_hw_params_fixup() fixes
+the rate and the channel count but leaves the format to be negotiated, so
+a 24-bit frontend stream arrives at a 16-bit slot and the ADSP rejects
+that just as flatly:
+
+  TDM port 56: 2 ch, 48000 Hz, 24 bit, ... 2 slots of 16, mask 0x3
+
+A TDM slot has a fixed width, so the backend format follows it.
+
+--- a/sound/soc/qcom/sm8250.c
++++ b/sound/soc/qcom/sm8250.c
+@@ -18,6 +18,27 @@
+ 
+ #define MI2S_BCLK_RATE		1536000
+ 
++/*
++ * TDM framing: two 16-bit slots per frame, one per amplifier, with the frame
++ * sync active low. 16 bits because that is what the CS35L41 pair on
++ * sm8250-xiaomi-alioth is wired for, and the slot width also fixes the
++ * backend sample format -- see sm8250_be_hw_params_fixup().
++ */
++#define TDM_MAX_SLOTS		8
++#define TDM_SLOTS		2
++#define TDM_SLOT_WIDTH		16
++#define TDM_SLOT_MASK		0x3
++
++static bool sm8250_is_tdm_dai(int id)
++{
++	switch (id) {
++	case PRIMARY_TDM_RX_0 ... QUINARY_TDM_TX_7:
++		return true;
++	default:
++		return false;
++	}
++}
++
+ struct sm8250_snd_data {
+ 	bool stream_prepared[AFE_PORT_MAX];
+ 	struct snd_soc_card *card;
+@@ -71,6 +92,17 @@
+ 	if (rtd->dai_link->compr_ops) {
+ 		/* This is a compressed stream, set format to S16_LE */
+ 		snd_mask_set_format(fmt, SNDRV_PCM_FORMAT_S16_LE);
++	} else if (sm8250_is_tdm_dai(snd_soc_rtd_to_cpu(rtd, 0)->id)) {
++		/*
++		 * A TDM frame has fixed-width slots, and the ADSP rejects
++		 * AFE_PARAM_ID_TDM_CONFIG outright (ADSP_EBADPARAM) when the
++		 * sample does not fit the slot.  The frontend happily hands us
++		 * S24_LE here while our slots are 16 bits wide, so pin the
++		 * backend format to whatever the slot width actually is.
++		 */
++		snd_mask_set_format(fmt, TDM_SLOT_WIDTH == 32 ?
++					 SNDRV_PCM_FORMAT_S32_LE :
++					 SNDRV_PCM_FORMAT_S16_LE);
+ 	} else {
+ 		/* For other streams, let format be negotiated as before */
+ 	}
+@@ -120,6 +152,8 @@
+ 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+ 	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
+ 	struct snd_soc_dai *codec_dai = snd_soc_rtd_to_codec(rtd, 0);
++	unsigned int bclk;
++	int i;
+ 
+ 	switch (cpu_dai->id) {
+ 	case PRIMARY_MI2S_RX:
+@@ -158,6 +192,29 @@
+ 		snd_soc_dai_set_fmt(codec_dai, codec_dai_fmt);
+ 		sm8250_codec_set_bclk(rtd, MI2S_BCLK_RATE);
+ 		break;
++	case TERTIARY_TDM_RX_0:
++		/*
++		 * DSP_A because qcom,tdm-data-delay is 1 -- data starts one
++		 * bit clock after the frame sync -- and NB_IF because
++		 * qcom,tdm-invert-sync is 1, so the pulse the codec has to
++		 * frame on is active low.
++		 */
++		codec_dai_fmt |= SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_NB_IF;
++		bclk = TDM_SLOTS * TDM_SLOT_WIDTH * 48000;
++		snd_soc_dai_set_sysclk(cpu_dai,
++			Q6AFE_LPASS_CLK_ID_TER_TDM_IBIT,
++			bclk, SNDRV_PCM_STREAM_PLAYBACK);
++		snd_soc_dai_set_fmt(cpu_dai, fmt);
++		/*
++		 * Every codec on the bus, not just the first: a TDM link is
++		 * shared, and a second amplifier left at its reset default
++		 * frames on the wrong edge and reads a slot that is not
++		 * where its channel is.
++		 */
++		for_each_rtd_codec_dais(rtd, i, codec_dai)
++			snd_soc_dai_set_fmt(codec_dai, codec_dai_fmt);
++		sm8250_codec_set_bclk(rtd, bclk);
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -165,6 +222,83 @@
+ 	return qcom_snd_sdw_startup(substream);
+ }
+ 
++/*
++ * A TDM backend needs its framing spelled out per stream, and nothing else
++ * does it: q6tdm_set_tdm_slot() is the only writer of nslots_per_frame and
++ * slot_width, so without the calls below q6afe hands the ADSP a port config
++ * of zero slots of zero bits and the ADSP refuses the port:
++ *
++ *   qcom-q6afe: AFE enable for port 0x9020 failed -22
++ *   q6afe-dai: ASoC error (-22): at snd_soc_dai_prepare() on TERTIARY_TDM_RX_0
++ */
++static int sm8250_snd_hw_params(struct snd_pcm_substream *substream,
++				struct snd_pcm_hw_params *params)
++{
++	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
++	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
++	/*
++	 * The CPU dai's channel map is a byte offset into the TDM frame, not a
++	 * slot index: q6tdm_set_channel_map() copies these straight into the
++	 * slot-mapping parameter the ADSP gets, and downstream msm kernels fill
++	 * that table with { 0, 4, 8, 12, ... } for 32-bit slots. An offset that
++	 * does not land on a slot boundary is rejected outright --
++	 * AFE_PORT_CMD_SET_PARAM_V2 comes back ADSP_EBADPARAM and the port
++	 * never starts. The codecs below get slot *indices* instead, because
++	 * that is what cs35l41_set_channels() writes into SP_FRAME_RX_SLOT.
++	 */
++	unsigned int slot_offset[TDM_MAX_SLOTS];
++	struct snd_soc_dai *codec_dai;
++	unsigned int rx_slot;
++	int i, ret;
++
++	if (!sm8250_is_tdm_dai(cpu_dai->id))
++		return 0;
++
++	for (i = 0; i < TDM_MAX_SLOTS; i++)
++		slot_offset[i] = i * (TDM_SLOT_WIDTH / 8);
++
++	ret = snd_soc_dai_set_tdm_slot(cpu_dai, 0, TDM_SLOT_MASK,
++				       TDM_SLOTS, TDM_SLOT_WIDTH);
++	if (ret) {
++		dev_err(rtd->dev, "cannot set cpu TDM slots: %d\n", ret);
++		return ret;
++	}
++
++	ret = snd_soc_dai_set_channel_map(cpu_dai, 0, NULL, 2, slot_offset);
++	if (ret) {
++		dev_err(rtd->dev, "cannot set cpu channel map: %d\n", ret);
++		return ret;
++	}
++
++	/*
++	 * One slot per codec in dai-link order, so two amplifiers sharing the
++	 * bus play different channels instead of both reading slot 0.
++	 */
++	for_each_rtd_codec_dais(rtd, i, codec_dai) {
++		if (i >= 2)
++			break;
++
++		ret = snd_soc_dai_set_tdm_slot(codec_dai, 0, TDM_SLOT_MASK,
++					       TDM_SLOTS, TDM_SLOT_WIDTH);
++		if (ret && ret != -ENOTSUPP) {
++			dev_err(rtd->dev, "cannot set %s TDM slots: %d\n",
++				codec_dai->name, ret);
++			return ret;
++		}
++
++		rx_slot = i;
++		ret = snd_soc_dai_set_channel_map(codec_dai, 0, NULL,
++						  1, &rx_slot);
++		if (ret && ret != -ENOTSUPP) {
++			dev_err(rtd->dev, "cannot set %s channel map: %d\n",
++				codec_dai->name, ret);
++			return ret;
++		}
++	}
++
++	return 0;
++}
++
+ static int sm8250_snd_prepare(struct snd_pcm_substream *substream)
+ {
+ 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+@@ -185,6 +319,7 @@
+ 
+ static const struct snd_soc_ops sm8250_be_ops = {
+ 	.startup = sm8250_snd_startup,
++	.hw_params = sm8250_snd_hw_params,
+ 	.shutdown = qcom_snd_sdw_shutdown,
+ 	.hw_free = sm8250_snd_hw_free,
+ 	.prepare = sm8250_snd_prepare,

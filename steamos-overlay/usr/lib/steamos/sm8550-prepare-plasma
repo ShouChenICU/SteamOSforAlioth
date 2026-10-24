@@ -1,0 +1,91 @@
+#!/bin/bash
+# Switch to Desktop starts official Plasma in the same user systemd as Game Mode.
+# start-gamescope-session used to import QT_QPA_PLATFORM=xcb into that manager;
+# plasmashell/ksplash then try X11, fail, and leave kwin on a black DSI.
+set -u
+
+if [[ ! -d /tmp/.X11-unix ]]; then
+  mkdir -p /tmp/.X11-unix
+fi
+# gamescope creates this dir without the sticky bit; kwin then refuses Xwayland.
+chmod 1777 /tmp/.X11-unix 2>/dev/null || true
+
+# Everything Game Mode handed the user manager has to go before Plasma's
+# services start from it. ENABLE_GAMESCOPE_WSI=1 left over put every Vulkan
+# program on the desktop through gamescope's WSI layer, which pops up a
+# warning with zenity; zenity draws with Vulkan, so it popped up another:
+# hundreds of them until the kernel killed Plasma for memory (black screen
+# with the backlight on). Valve's list (gamescope-cleanup) plus the ones our
+# gamescope-onready adds, and the env file steam.service reads.
+# (Its own process: it sets -euo pipefail, which must not leak in here.)
+[[ -f /usr/lib/steamos/gamescope-cleanup ]] && bash /usr/lib/steamos/gamescope-cleanup >/dev/null 2>&1
+if [[ -f /usr/lib/steamos/gamescope-env-list ]]; then
+  # shellcheck disable=SC1091
+  source /usr/lib/steamos/gamescope-env-list && unset "${gamescope_inherit_vars[@]}"
+fi
+ours=(_STEAM_SETENV_MANAGER SteamDeck STEAM_DISPLAY_REFRESH_LIMITS GAMESCOPE_MANGOAPP_SOCKET_DISABLE
+      ENABLE_GAMESCOPE_WSI XDG_SESSION_DESKTOP)
+systemctl --user unset-environment "${ours[@]}" 2>/dev/null || true
+dbus-update-activation-environment "${ours[@]/%/=}" >/dev/null 2>&1 || true
+unset "${ours[@]}"
+rm -f "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/gamescope-steam.env"
+export GAMESCOPE_ZENITY_DISABLE=1
+# The cleanup leaves DISPLAY empty, and Steam's Desktop autostart starts
+# before anything sets it again: "Unable to open a connection to X". KWin
+# starts its Xwayland on the first free display, which is :0 once Game
+# Mode's are gone (stale lock files of dead X servers removed first).
+for lock in /tmp/.X[0-9]*-lock; do
+  [[ -f "$lock" ]] || continue
+  pid="$(tr -dc 0-9 <"$lock" 2>/dev/null)"
+  if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
+    n="${lock#/tmp/.X}"; n="${n%-lock}"
+    rm -f "$lock" "/tmp/.X11-unix/X$n" 2>/dev/null || true
+  fi
+done
+export DISPLAY=:0
+systemctl --user set-environment DISPLAY=:0 2>/dev/null || true
+dbus-update-activation-environment DISPLAY=:0 >/dev/null 2>&1 || true
+
+unset QT_QPA_PLATFORM
+unset GAMESCOPE_WAYLAND_DISPLAY
+unset GAMESCOPE_SESSION_TARGET
+export QT_QPA_PLATFORM=wayland
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=KDE
+export XDG_SESSION_DESKTOP=KDE
+export DESKTOP_SESSION=plasma
+
+if command -v systemctl >/dev/null 2>&1; then
+  # The portal left over from Game Mode sees XDG_CURRENT_DESKTOP=KDE below,
+  # starts the KDE backend before there is a Wayland display, and that crash
+  # (plus the restart) holds up Plasma's start. Plasma starts them itself.
+  systemctl --user stop xdg-desktop-portal.service 'xdg-desktop-portal-*.service' \
+    plasma-xdg-desktop-portal-kde.service 2>/dev/null || true
+  systemctl --user reset-failed plasma-xdg-desktop-portal-kde.service 2>/dev/null || true
+  systemctl --user unset-environment \
+    QT_QPA_PLATFORM GAMESCOPE_WAYLAND_DISPLAY GAMESCOPE_SESSION_TARGET \
+    XDG_DESKTOP_PORTAL_DIR || true
+  systemctl --user set-environment \
+    QT_QPA_PLATFORM=wayland \
+    XDG_SESSION_TYPE=wayland \
+    XDG_CURRENT_DESKTOP=KDE \
+    XDG_SESSION_DESKTOP=KDE \
+    DESKTOP_SESSION=plasma || true
+fi
+
+if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+  dbus-update-activation-environment --systemd \
+    QT_QPA_PLATFORM XDG_SESSION_TYPE XDG_CURRENT_DESKTOP \
+    XDG_SESSION_DESKTOP DESKTOP_SESSION >/dev/null 2>&1 || true
+fi
+
+# Desktops set up before 1.3.2 have their own powerdevilrc, which turns the
+# panel off when idle, and the panel doesn't come back from that. Once per
+# user: dim only. Turning it back on in System Settings stays as the user set it.
+mark="${XDG_CONFIG_HOME:-$HOME/.config}/steamos-arm/display-off-idle-v1"
+if [[ ! -e "$mark" ]] && command -v kwriteconfig6 >/dev/null 2>&1; then
+  for profile in AC Battery LowBattery; do
+    kwriteconfig6 --file powerdevilrc --group "$profile" --group Display --key TurnOffDisplayWhenIdle false || true
+  done
+  mkdir -p "${mark%/*}" && : >"$mark"
+fi

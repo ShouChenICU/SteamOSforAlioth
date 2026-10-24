@@ -1,0 +1,19 @@
+#!/bin/sh
+# Keep a kernel devcoredump (GPU/GMU hang, remoteproc crash) before the kernel
+# drops it about five minutes after it appears, long before anyone boots with
+# the BOOT "debug" file. The last five go to /var/lib/steamos-arm/devcoredump
+# and the debug log collector copies them to BOOT/debug-logs.
+# $1 = devcdN (from 70-steamos-arm-devcoredump.rules)
+d=/sys/class/devcoredump/$1
+[ -r "$d/data" ] || exit 0
+out=/var/lib/steamos-arm/devcoredump
+mkdir -p "$out"
+drv=$(basename "$(readlink -f "$d/failing_device/driver" 2>/dev/null)" 2>/dev/null)
+f="$out/$(date +%Y%m%d-%H%M%S)-${drv:-unknown}.dump"
+cat "$d/data" >"$f" 2>/dev/null
+# Writing to data frees the dump in the kernel straight away.
+echo 1 >"$d/data" 2>/dev/null
+[ -s "$f" ] || { rm -f "$f"; exit 0; }
+logger -t save-devcoredump "saved $(wc -c <"$f") bytes from ${drv:-unknown} to $f"
+ls -1t "$out"/*.dump 2>/dev/null | tail -n +6 | xargs -r rm -f
+exit 0

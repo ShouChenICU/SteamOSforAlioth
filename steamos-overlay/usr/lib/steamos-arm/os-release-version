@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Name the installed SteamOS ARM release in /etc/os-release.
+
+Steam's Settings > System shows PRETTY_NAME as "OS Name", and Desktop Mode's
+About page shows it too. Frame's own VERSION_ID and BUILD_ID stay as they
+are, since Steam and its runtime read those. The release comes from the
+update inventory, which konkr-update rewrites after every update, so this
+runs on each boot.
+
+  os-release-version [ROOT]   ROOT defaults to /
+"""
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1] if len(sys.argv) > 1 else "/")
+try:
+    version = json.loads((root / "usr/share/steamos-arm/update/installed.json").read_text()).get("version", "")
+except (OSError, ValueError):
+    version = ""
+if not re.fullmatch(r"\d+(?:\.\d+)*", version or ""):
+    sys.exit(0)                           # images before v1.3 don't record their release
+
+want = {"PRETTY_NAME": f'"Unofficial SteamOS ARM {version}"', "VERSION": f'"{version}"'}
+for rel in ("etc/os-release", "usr/lib/os-release"):
+    path = root / rel
+    if not path.is_file() or (rel == "usr/lib/os-release" and str(root) == "/"):
+        continue                          # /usr is read-only on a running system
+    lines = path.read_text().splitlines()
+    seen = set()
+    out = []
+    for line in lines:
+        key = line.split("=", 1)[0]
+        if key in want:
+            if key in seen:
+                continue
+            seen.add(key)
+            line = f"{key}={want[key]}"
+        out.append(line)
+    out += [f"{k}={v}" for k, v in want.items() if k not in seen]
+    text = "\n".join(out) + "\n"
+    if lines and "\n".join(lines) + "\n" == text:
+        continue
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text)
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, path)                 # a link to /usr becomes a file of our own

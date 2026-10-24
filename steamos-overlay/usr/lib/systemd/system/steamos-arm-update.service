@@ -1,0 +1,11 @@
+[Unit]
+Description=Download and stage a SteamOS ARM update (Steam's update button)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/steamos-arm/update-agent apply
+# 7: nothing newer, 8: one already staged (both reported to Steam, not errors)
+SuccessExitStatus=7 8
+# a failed stage leaves the system as it was: konkr-update backs up first
+TimeoutStartSec=2h

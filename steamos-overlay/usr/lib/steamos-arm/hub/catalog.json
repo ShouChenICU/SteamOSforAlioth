@@ -1,0 +1,955 @@
+{
+ "_about": [
+  "What the hub can install. Each entry lists its sources best first; the",
+  "first one whose 'when' fits this device and that resolves is used, so a",
+  "dead feed falls through to the next. Kinds: github / forgejo / gitlab",
+  "release files (AppImage), flathub (user install), builtin (ships with the",
+  "image). 'heavy_below' marks a chip it struggles on; 'starter' is the",
+  "lowest chip it is part of the one-tap starter set from.",
+  "Chips in order: sm8350 < sm8550 < sm8650 < sm8750.",
+  "'unpack' (with 'start'): the release file is a .tar.* holding one app folder,",
+  "unpacked into ~/Applications/<unpack> and started through <start>.",
+  "_bundles: ready-made sets the store offers in one tap (only what's missing installs)."
+ ],
+ "apps": [
+  {
+   "id": "retroarch",
+   "title": "RetroArch",
+   "plays": "NES, SNES, Game Boy, Mega Drive, N64, arcade and dozens more",
+   "kind": "emulator",
+   "systems": [
+    "nes",
+    "snes",
+    "gb",
+    "gbc",
+    "gba",
+    "genesis",
+    "mastersystem",
+    "gamegear",
+    "n64",
+    "pcengine",
+    "neogeo",
+    "arcade",
+    "atari2600",
+    "psx"
+   ],
+   "icon": "flathub:org.libretro.RetroArch",
+   "starter": "sm8350",
+   "setup": "retroarch",
+   "esde": "RETROARCH",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "org.libretro.RetroArch"
+    }
+   ]
+  },
+  {
+   "id": "ppsspp",
+   "title": "PPSSPP",
+   "plays": "PlayStation Portable",
+   "kind": "emulator",
+   "systems": [
+    "psp"
+   ],
+   "icon": "flathub:org.ppsspp.PPSSPP",
+   "starter": "sm8350",
+   "setup": "ppsspp",
+   "esde": "PPSSPP",
+   "save_as": "PPSSPP.AppImage",
+   "sources": [
+    {
+     "kind": "github",
+     "repo": "hrydgard/ppsspp",
+     "file": "^PPSSPP-v[0-9.]+-anylinux-aarch64\\.AppImage$"
+    },
+    {
+     "kind": "flathub",
+     "ref": "org.ppsspp.PPSSPP"
+    }
+   ]
+  },
+  {
+   "id": "duckstation",
+   "title": "DuckStation",
+   "plays": "PlayStation",
+   "kind": "emulator",
+   "systems": [
+    "psx"
+   ],
+   "icon": "flathub:org.duckstation.DuckStation",
+   "starter": "sm8350",
+   "setup": "duckstation",
+   "esde": "DUCKSTATION",
+   "save_as": "DuckStation.AppImage",
+   "sources": [
+    {
+     "kind": "github",
+     "repo": "stenzek/duckstation",
+     "tag": "latest",
+     "file": "^DuckStation-arm64\\.AppImage$"
+    }
+   ]
+  },
+  {
+   "id": "melonds",
+   "title": "melonDS",
+   "plays": "Nintendo DS",
+   "kind": "emulator",
+   "systems": [
+    "nds"
+   ],
+   "icon": "flathub:net.kuribo64.melonDS",
+   "starter": "sm8350",
+   "setup": "melonds",
+   "esde": "MELONDS",
+   "save_as": "melonDS.AppImage",
+   "sources": [
+    {
+     "kind": "github",
+     "repo": "virtudude/melonDS",
+     "tag": "drm-leasing",
+     "file": "^melonDS-aarch64\\.AppImage$",
+     "when": {
+      "dual": true
+     },
+     "label": "Touch screen on the bottom display",
+     "lease": "melonds"
+    },
+    {
+     "kind": "github",
+     "repo": "pkgforge-dev/melonDS-AppImage",
+     "file": "^melonDS-[0-9.]+-[0-9]+-anylinux-aarch64\\.AppImage$"
+    },
+    {
+     "kind": "flathub",
+     "ref": "net.kuribo64.melonDS"
+    }
+   ]
+  },
+  {
+   "id": "azahar",
+   "title": "Azahar",
+   "plays": "Nintendo 3DS",
+   "kind": "emulator",
+   "systems": [
+    "n3ds"
+   ],
+   "icon": "flathub:org.azahar_emu.Azahar",
+   "starter": "sm8350",
+   "setup": "azahar",
+   "esde": "AZAHAR",
+   "save_as": "Azahar.AppImage",
+   "sources": [
+    {
+     "kind": "github",
+     "repo": "virtudude/Azahar-AppImage-Enhanced",
+     "tag": "drm-leasing",
+     "file": "^Azahar-[0-9a-f]{6,}-anylinux-aarch64\\.AppImage$",
+     "when": {
+      "dual": true
+     },
+     "label": "Touch screen on the bottom display",
+     "lease": "azahar"
+    },
+    {
+     "kind": "github",
+     "repo": "pkgforge-dev/Azahar-AppImage-Enhanced",
+     "file": "^Azahar-[0-9.]+-anylinux-aarch64\\.AppImage$"
+    },
+    {
+     "kind": "flathub",
+     "ref": "org.azahar_emu.Azahar"
+    }
+   ]
+  },
+  {
+   "id": "dolphin",
+   "title": "Dolphin",
+   "plays": "GameCube and Wii",
+   "kind": "emulator",
+   "systems": [
+    "gc",
+    "wii"
+   ],
+   "icon": "flathub:org.DolphinEmu.dolphin-emu",
+   "starter": "sm8550",
+   "heavy_below": "sm8550",
+   "setup": "dolphin",
+   "esde": "DOLPHIN",
+   "save_as": "Dolphin.AppImage",
+   "sources": [
+    {
+     "kind": "github",
+     "repo": "pkgforge-dev/Dolphin-emu-AppImage",
+     "file": "^Dolphin_Emulator-[0-9]+-anylinux-aarch64\\.AppImage$"
+    },
+    {
+     "kind": "flathub",
+     "ref": "org.DolphinEmu.dolphin-emu"
+    }
+   ]
+  },
+  {
+   "id": "armsx2",
+   "title": "ARMSX2",
+   "plays": "PlayStation 2",
+   "kind": "emulator",
+   "systems": [
+    "ps2"
+   ],
+   "icon": "github:ARMSX2",
+   "starter": "sm8550",
+   "heavy_below": "sm8550",
+   "setup": "armsx2",
+   "esde": "ARMSX2",
+   "save_as": "ARMSX2.AppImage",
+   "note": "Nightly builds",
+   "sources": [
+    {
+     "kind": "github",
+     "repo": "ARMSX2/ARMSX2",
+     "prerelease": true,
+     "file": "Linux-arm64-16K-pages\\.AppImage$",
+     "when": {
+      "page": 16384
+     }
+    },
+    {
+     "kind": "github",
+     "repo": "ARMSX2/ARMSX2",
+     "prerelease": true,
+     "file": "Linux-arm64-4K-pages\\.AppImage$"
+    }
+   ]
+  },
+  {
+   "id": "eden",
+   "title": "Eden",
+   "plays": "Nintendo Switch",
+   "kind": "emulator",
+   "systems": [
+    "switch"
+   ],
+   "icon": "forgejo:https://git.eden-emu.dev/eden-emu/eden",
+   "starter": "sm8650",
+   "heavy_below": "sm8650",
+   "setup": "eden",
+   "esde": "EDEN",
+   "save_as": "Eden.AppImage",
+   "sources": [
+    {
+     "kind": "forgejo",
+     "base": "https://git.eden-emu.dev",
+     "repo": "eden-emu/eden",
+     "file": "^Eden-Linux-v[0-9.]+-aarch64-clang-pgo\\.AppImage$"
+    }
+   ]
+  },
+  {
+   "id": "ryujinx",
+   "title": "Ryujinx",
+   "plays": "Nintendo Switch (a second choice)",
+   "kind": "emulator",
+   "systems": [
+    "switch"
+   ],
+   "icon": "flathub:io.github.ryubing.Ryujinx",
+   "heavy_below": "sm8650",
+   "setup": "ryujinx",
+   "esde": "RYUJINX",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "io.github.ryubing.Ryujinx"
+    }
+   ]
+  },
+  {
+   "id": "cemu",
+   "title": "Cemu",
+   "plays": "Wii U",
+   "kind": "emulator",
+   "systems": [
+    "wiiu"
+   ],
+   "icon": "flathub:info.cemu.Cemu",
+   "starter": "sm8650",
+   "heavy_below": "sm8550",
+   "setup": "cemu",
+   "esde": "CEMU",
+   "save_as": "Cemu.AppImage",
+   "sources": [
+    {
+     "kind": "github",
+     "repo": "pkgforge-dev/Cemu-AppImage-Enhanced",
+     "file": "^Cemu-[0-9.]+-[0-9]+-anylinux-aarch64\\.AppImage$"
+    }
+   ]
+  },
+  {
+   "id": "rpcs3",
+   "title": "RPCS3",
+   "plays": "PlayStation 3",
+   "kind": "emulator",
+   "systems": [
+    "ps3"
+   ],
+   "icon": "flathub:net.rpcs3.RPCS3",
+   "heavy_below": "sm8650",
+   "setup": "rpcs3",
+   "esde": "RPCS3",
+   "save_as": "RPCS3.AppImage",
+   "sources": [
+    {
+     "kind": "github",
+     "repo": "RPCS3/rpcs3-binaries-linux-arm64",
+     "file": "^rpcs3-v[0-9].*_linux_aarch64\\.AppImage$"
+    },
+    {
+     "kind": "flathub",
+     "ref": "net.rpcs3.RPCS3"
+    }
+   ]
+  },
+  {
+   "id": "vita3k",
+   "title": "Vita3K",
+   "plays": "PlayStation Vita",
+   "kind": "emulator",
+   "systems": [
+    "psvita"
+   ],
+   "icon": "github:Vita3K",
+   "heavy_below": "sm8550",
+   "setup": "vita3k",
+   "esde": "VITA3K",
+   "save_as": "Vita3K.AppImage",
+   "sources": [
+    {
+     "kind": "github",
+     "repo": "Vita3K/Vita3K",
+     "tag": "continuous",
+     "file": "^Vita3K-aarch64\\.AppImage$"
+    }
+   ]
+  },
+  {
+   "id": "xemu",
+   "title": "xemu",
+   "plays": "original Xbox",
+   "kind": "emulator",
+   "systems": [
+    "xbox"
+   ],
+   "icon": "flathub:app.xemu.xemu",
+   "heavy_below": "sm8550",
+   "setup": "xemu",
+   "esde": "XEMU",
+   "save_as": "xemu.AppImage",
+   "sources": [
+    {
+     "kind": "github",
+     "repo": "xemu-project/xemu",
+     "file": "^xemu-[0-9.]+-aarch64\\.AppImage$"
+    },
+    {
+     "kind": "flathub",
+     "ref": "app.xemu.xemu"
+    }
+   ]
+  },
+  {
+   "id": "flycast",
+   "title": "Flycast",
+   "plays": "Dreamcast, Naomi and Atomiswave",
+   "kind": "emulator",
+   "systems": [
+    "dreamcast",
+    "naomi",
+    "atomiswave"
+   ],
+   "icon": "flathub:org.flycast.Flycast",
+   "starter": "sm8550",
+   "setup": "flycast",
+   "esde": "FLYCAST",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "org.flycast.Flycast"
+    }
+   ]
+  },
+  {
+   "id": "mgba",
+   "title": "mGBA",
+   "plays": "Game Boy Advance",
+   "kind": "emulator",
+   "systems": [
+    "gba",
+    "gb",
+    "gbc"
+   ],
+   "icon": "flathub:io.mgba.mGBA",
+   "setup": "mgba",
+   "esde": "MGBA",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "io.mgba.mGBA"
+    }
+   ]
+  },
+  {
+   "id": "rmg",
+   "title": "Rosalie's Mupen GUI",
+   "plays": "Nintendo 64",
+   "kind": "emulator",
+   "systems": [
+    "n64"
+   ],
+   "icon": "flathub:com.github.Rosalie241.RMG",
+   "setup": "rmg",
+   "esde": "ROSALIES-MUPEN-GUI",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "com.github.Rosalie241.RMG"
+    }
+   ]
+  },
+  {
+   "id": "primehack",
+   "title": "PrimeHack",
+   "plays": "Metroid Prime Trilogy, with mouse-style aiming",
+   "kind": "emulator",
+   "systems": [
+    "gc",
+    "wii"
+   ],
+   "icon": "flathub:io.github.shiiion.primehack",
+   "heavy_below": "sm8550",
+   "setup": "primehack",
+   "esde": "PRIMEHACK",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "io.github.shiiion.primehack"
+    }
+   ]
+  },
+  {
+   "id": "mame",
+   "title": "MAME",
+   "plays": "arcade machines",
+   "kind": "emulator",
+   "systems": [
+    "arcade",
+    "mame"
+   ],
+   "icon": "flathub:org.mamedev.MAME",
+   "setup": "mame",
+   "esde": "MAME",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "org.mamedev.MAME"
+    }
+   ]
+  },
+  {
+   "id": "scummvm",
+   "title": "ScummVM",
+   "plays": "classic point-and-click adventures",
+   "kind": "emulator",
+   "systems": [
+    "scummvm"
+   ],
+   "icon": "flathub:org.scummvm.ScummVM",
+   "setup": "scummvm",
+   "esde": "SCUMMVM",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "org.scummvm.ScummVM"
+    }
+   ]
+  },
+  {
+   "id": "dosbox",
+   "title": "DOSBox Staging",
+   "plays": "MS-DOS games",
+   "kind": "emulator",
+   "systems": [
+    "dos"
+   ],
+   "icon": "flathub:io.github.dosbox-staging",
+   "setup": "dosbox",
+   "esde": "DOSBOX-STAGING",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "io.github.dosbox-staging"
+    }
+   ]
+  },
+  {
+   "id": "ymir",
+   "title": "Ymir",
+   "plays": "Sega Saturn",
+   "kind": "emulator",
+   "systems": [
+    "saturn"
+   ],
+   "icon": "flathub:io.github.strikerx3.ymir",
+   "setup": "ymir",
+   "esde": "YMIR",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "io.github.strikerx3.ymir"
+    }
+   ]
+  },
+  {
+   "id": "bigpemu",
+   "title": "BigPEmu",
+   "plays": "Atari Jaguar",
+   "kind": "emulator",
+   "systems": [
+    "atarijaguar"
+   ],
+   "icon": "flathub:com.richwhitehouse.BigPEmu",
+   "setup": "bigpemu",
+   "esde": "BIGPEMU",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "com.richwhitehouse.BigPEmu"
+    }
+   ]
+  },
+  {
+   "id": "esde",
+   "title": "ES-DE",
+   "plays": "one game library for every emulator, with box art",
+   "kind": "frontend",
+   "icon": "gitlab:https://gitlab.com/es-de/emulationstation-de",
+   "starter": "sm8350",
+   "setup": "esde",
+   "save_as": "ES-DE.AppImage",
+   "sources": [
+    {
+     "kind": "gitlab",
+     "base": "https://gitlab.com",
+     "repo": "es-de/emulationstation-de",
+     "file": "^ES-DE_aarch64\\.AppImage$"
+    }
+   ]
+  },
+  {
+   "id": "srm",
+   "title": "Steam ROM Manager",
+   "plays": "puts your ROMs straight into the Steam library",
+   "kind": "frontend",
+   "icon": "file:/usr/share/icons/hicolor/256x256/apps/steam-rom-manager.png",
+   "note": "Run it from Desktop Mode",
+   "sources": [
+    {
+     "kind": "builtin",
+     "exec": "/usr/bin/steam-rom-manager"
+    }
+   ],
+   "desktop_only": true
+  },
+  {
+   "id": "jamesdsp",
+   "title": "JamesDSP",
+   "plays": "speaker EQ and sound effects",
+   "kind": "app",
+   "icon": "flathub:me.timschneeberger.jdsp4linux",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "me.timschneeberger.jdsp4linux"
+    }
+   ]
+  },
+  {
+   "id": "moonlight",
+   "title": "Moonlight",
+   "plays": "stream games from your PC",
+   "kind": "app",
+   "icon": "flathub:com.moonlight_stream.Moonlight",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "com.moonlight_stream.Moonlight"
+    }
+   ],
+   "video_accel": {}
+  },
+  {
+   "id": "chiaki",
+   "title": "Chiaki4deck",
+   "plays": "Remote Play from your PlayStation",
+   "kind": "app",
+   "icon": "flathub:io.github.streetpea.Chiaki4deck",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "io.github.streetpea.Chiaki4deck"
+    }
+   ],
+   "video_accel": {}
+  },
+  {
+   "id": "greenlight",
+   "title": "Greenlight",
+   "plays": "Xbox Cloud Gaming and Xbox Remote Play",
+   "kind": "app",
+   "icon": "flathub:io.github.unknownskl.greenlight",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "io.github.unknownskl.greenlight"
+    }
+   ],
+   "video_accel": {
+    "gbm_nv12": true,
+    "command": "zypak-wrapper.sh",
+    "args": [
+     "/app/main/greenlight-desktop",
+     "--enable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiIgnoreDriverChecks,VaapiVideoDecoder,Vulkan,VulkanFromANGLE,DefaultANGLEVulkan",
+     "--ignore-gpu-blocklist",
+     "--use-gl=angle",
+     "--use-angle=vulkan",
+     "--use-vulkan"
+    ],
+    "env": {
+     "VK_ICD_FILENAMES": "/usr/share/vulkan/icd.d/freedreno_icd.aarch64.json"
+    }
+   }
+  },
+  {
+   "id": "vesktop",
+   "title": "Vesktop",
+   "plays": "Discord, in a build that runs on ARM",
+   "kind": "app",
+   "icon": "flathub:dev.vencord.Vesktop",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "dev.vencord.Vesktop"
+    }
+   ]
+  },
+  {
+   "id": "signal",
+   "title": "Signal",
+   "plays": "private messages",
+   "kind": "app",
+   "icon": "flathub:org.signal.Signal",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "org.signal.Signal"
+    }
+   ]
+  },
+  {
+   "id": "prism",
+   "title": "Prism Launcher",
+   "plays": "Minecraft: Java Edition",
+   "kind": "app",
+   "icon": "flathub:org.prismlauncher.PrismLauncher",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "org.prismlauncher.PrismLauncher"
+    }
+   ]
+  },
+  {
+   "id": "optiscaler",
+   "title": "OptiScaler",
+   "plays": "FSR and XeSS upscaling in more PC games (Decky plugin, ARM64EC build)",
+   "kind": "plugin",
+   "icon": "github:justradical",
+   "sources": [
+    {
+     "kind": "github",
+     "repo": "justradical/decky-optiscaler-arm64ec",
+     "file": "^OptiScaler\\.zip$",
+     "plugin": true
+    }
+   ]
+  },
+  {
+   "id": "protonplus",
+   "title": "ProtonPlus",
+   "plays": "install other Proton and Wine builds",
+   "kind": "tool",
+   "desktop_only": true,
+   "icon": "flathub:com.vysp3r.ProtonPlus",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "com.vysp3r.ProtonPlus"
+    }
+   ]
+  },
+  {
+   "id": "protonupqt",
+   "title": "ProtonUp-Qt",
+   "plays": "Proton and Wine builds, the other popular manager",
+   "kind": "tool",
+   "desktop_only": true,
+   "icon": "flathub:net.davidotek.pupgui2",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "net.davidotek.pupgui2"
+    }
+   ]
+  },
+  {
+   "id": "flatseal",
+   "title": "Flatseal",
+   "plays": "what each Flatpak app may see and use",
+   "kind": "tool",
+   "desktop_only": true,
+   "icon": "flathub:com.github.tchx84.Flatseal",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "com.github.tchx84.Flatseal"
+    }
+   ]
+  },
+  {
+   "id": "distroshelf",
+   "title": "DistroShelf",
+   "plays": "other Linux distros in containers, for apps SteamOS lacks",
+   "kind": "tool",
+   "desktop_only": true,
+   "icon": "flathub:com.ranfdev.DistroShelf",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "com.ranfdev.DistroShelf"
+    }
+   ]
+  },
+  {
+   "id": "heroic",
+   "title": "Heroic Games Launcher",
+   "plays": "your Epic, GOG and Amazon games, played from Steam with Proton",
+   "kind": "store",
+   "icon": "flathub:com.heroicgameslauncher.hgl",
+   "unpack": "Heroic",
+   "start": "heroic",
+   "desktop_ok": true,
+   "note": "Install games in Heroic, then add them to Steam from Loadout's PC Games tab",
+   "sources": [
+    {
+     "kind": "github",
+     "repo": "hashtagbasit/arm64-linux-apps",
+     "file": "^Heroic-[0-9.]+-linux-arm64\\.tar\\.xz$"
+    }
+   ],
+   "setup": "heroic",
+   "args": [
+    "--no-sandbox"
+   ]
+  },
+  {
+   "id": "boilr",
+   "title": "BoilR",
+   "plays": "adds games from Epic, GOG, itch.io, Amazon and more to Steam, with artwork",
+   "kind": "store",
+   "icon": "flathub:io.github.philipk.boilr",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "io.github.philipk.boilr"
+    }
+   ]
+  },
+  {
+   "id": "kodi",
+   "title": "Kodi",
+   "plays": "films, TV, music and photos on the big screen",
+   "kind": "media",
+   "icon": "flathub:tv.kodi.Kodi",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "tv.kodi.Kodi"
+    }
+   ],
+   "video_accel": {}
+  },
+  {
+   "id": "vlc",
+   "title": "VLC",
+   "plays": "plays any video or music file",
+   "kind": "media",
+   "icon": "flathub:org.videolan.VLC",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "org.videolan.VLC"
+    }
+   ],
+   "video_accel": {}
+  },
+  {
+   "id": "haruna",
+   "title": "Haruna",
+   "plays": "a touch-friendly video player",
+   "kind": "media",
+   "icon": "flathub:org.kde.haruna",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "org.kde.haruna"
+    }
+   ],
+   "video_accel": {}
+  },
+  {
+   "id": "firefox",
+   "title": "Firefox",
+   "plays": "the web, with hardware video decoding",
+   "kind": "browser",
+   "icon": "flathub:org.mozilla.firefox",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "org.mozilla.firefox"
+    }
+   ],
+   "video_accel": {}
+  },
+  {
+   "id": "chromium",
+   "title": "Chromium",
+   "plays": "the web, Chrome's open source base",
+   "kind": "browser",
+   "icon": "flathub:org.chromium.Chromium",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "org.chromium.Chromium"
+    }
+   ]
+  },
+  {
+   "id": "localsend",
+   "title": "LocalSend",
+   "plays": "send games, ROMs and files from your phone or PC over Wi-Fi",
+   "kind": "tool",
+   "icon": "flathub:org.localsend.localsend_app",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "org.localsend.localsend_app"
+    }
+   ]
+  },
+  {
+   "id": "protontricks",
+   "title": "Protontricks",
+   "plays": "install Windows runtimes into a game's Proton prefix",
+   "kind": "tool",
+   "icon": "flathub:com.github.Matoking.protontricks",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "com.github.Matoking.protontricks"
+    }
+   ],
+   "desktop_only": true
+  },
+  {
+   "id": "gearlever",
+   "title": "Gear Lever",
+   "plays": "manage AppImages: update, rename, add to the menu",
+   "kind": "tool",
+   "icon": "flathub:it.mijorus.gearlever",
+   "sources": [
+    {
+     "kind": "flathub",
+     "ref": "it.mijorus.gearlever"
+    }
+   ],
+   "desktop_only": true
+  }
+ ],
+ "_bundles": [
+  {
+   "id": "classics",
+   "title": "Classic consoles",
+   "about": "NES to PlayStation, Game Boy to DS: the set most libraries start with.",
+   "apps": [
+    "retroarch",
+    "mgba",
+    "duckstation",
+    "ppsspp",
+    "melonds"
+   ]
+  },
+  {
+   "id": "modern",
+   "title": "Modern consoles",
+   "about": "GameCube, Wii, PS2, 3DS, Switch and Wii U, sized to this chip.",
+   "apps": [
+    "dolphin",
+    "armsx2",
+    "azahar",
+    "eden",
+    "cemu"
+   ]
+  },
+  {
+   "id": "pcgames",
+   "title": "PC games",
+   "about": "Your Epic, GOG and Amazon libraries in Steam, plus Proton tools.",
+   "apps": [
+    "heroic",
+    "boilr",
+    "protonplus",
+    "protontricks"
+   ]
+  },
+  {
+   "id": "streaming",
+   "title": "Stream from your PC or console",
+   "about": "Play your PC, PlayStation or Xbox library over Wi-Fi.",
+   "apps": [
+    "moonlight",
+    "chiaki",
+    "greenlight"
+   ]
+  },
+  {
+   "id": "frontend",
+   "title": "A console-style front end",
+   "about": "ES-DE for browsing everything, Steam ROM Manager to put it in Steam.",
+   "apps": [
+    "esde",
+    "srm"
+   ]
+  },
+  {
+   "id": "media",
+   "title": "Films and music",
+   "about": "Kodi for the couch, VLC for anything else.",
+   "apps": [
+    "kodi",
+    "vlc"
+   ]
+  }
+ ]
+}

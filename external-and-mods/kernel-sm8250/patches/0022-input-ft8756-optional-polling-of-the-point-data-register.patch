@@ -1,0 +1,210 @@
+From: SteamOS ARM alioth port
+Subject: [PATCH] input: ft8756: optional polling of the point data register
+
+With ft8756.ignore_id=1 the driver now binds on this Redmi K40 and
+creates the input device, but no touch ever arrives: IRQ 152
+(msmgpio 39, edge, spi4.0) stays at 0 on all eight CPUs across a
+swipe, and /sys/kernel/debug/gpio reads gpio39 as an input, pulled
+up and high -- the INT line never moves. The pin itself is right:
+pinmux-pins has "pin 39 (GPIO_39): device spi4.0 function gpio", and
+gpio33, the reset line, reads out high.
+
+So the interrupt path cannot answer the question that matters next,
+which is whether the chip reports touches at all. Reading 0xef from
+registers 0xA3 and 0x9F has a second reading besides "a part this
+driver does not know": ft8756_report() itself treats 0xEF in the
+point data as "no valid data", so 0xef may be this chip saying it
+has nothing to report -- a controller sitting in its ROM bootloader
+with no application firmware running answers exactly that way, and
+would also never assert INT.
+
+ft8756.poll=<ms> reads the point register on a timer so the two cases
+separate on the next boot:
+
+  * live coordinates in the frame -> the chip scans and reports, and
+    only the INT wiring is wrong. Polling is then also a usable
+    phase-1 touchscreen.
+  * a frame of 0xef -> the application firmware is not running, and
+    the next step is downloading it to PRAM (the unused
+    FT8756_ROMBOOT_CMD_* constants above are for exactly that).
+
+Also dumps the point frame under ft8756.debug=1, on change only so a
+poll interval of a few tens of milliseconds does not fill the log
+with the idle frame.
+
+Off by default: the driver stays interrupt-driven unless asked.
+
+@@ -86,6 +86,19 @@
+ module_param_named(ignore_id, ft8756_ignore_id, bool, 0644);
+ MODULE_PARM_DESC(ignore_id, "probe even when the chip id is unknown");
+ 
++/*
++ * ft8756.poll=<ms>: read the point data register on a timer instead of
++ * waiting for the interrupt. The controller in this Redmi K40 never
++ * moves its INT line -- /proc/interrupts stays at 0 across a swipe,
++ * with gpio39 read as input, pulled up and high -- so the interrupt
++ * path cannot say whether the chip reports touches at all. Polling
++ * asks the register directly. 0 (the default) keeps the driver
++ * interrupt-driven.
++ */
++static unsigned int ft8756_poll_ms;
++module_param_named(poll, ft8756_poll_ms, uint, 0644);
++MODULE_PARM_DESC(poll, "poll the point data register every N ms (0 = off)");
++
+ struct ft8756_abs_object {
+ 	u16 x;
+ 	u16 y;
+@@ -107,6 +120,9 @@
+ 	struct ft8756_abs_object abs_obj;
+ 
+ 	struct drm_panel_follower panel_follower;
++
++	struct delayed_work poll_work;
++	u8 dbg_last[16];
+ };
+ 
+ /*
+@@ -384,6 +400,17 @@
+ 		goto exit;
+ 	}
+ 
++	/*
++	 * Only on change: a poll interval of a few tens of milliseconds
++	 * would otherwise fill the log with the idle frame.
++	 */
++	if (ft8756_debug_frames &&
++	    memcmp(point, ts->dbg_last, sizeof(ts->dbg_last))) {
++		memcpy(ts->dbg_last, point, sizeof(ts->dbg_last));
++		print_hex_dump(KERN_ERR, "ft8756 pt ", DUMP_PREFIX_OFFSET,
++			       16, 1, point, sizeof(ts->dbg_last), false);
++	}
++
+ 	for(i = 0; i < 6; i++) {
+ 		if((point[i] != 0xEF && point[i] != 0xFF))
+ 			break;
+@@ -436,6 +463,18 @@
+ 	return;
+ }
+ 
++static void ft8756_poll_work(struct work_struct *work)
++{
++	struct ft8756_ts *ts = container_of(work, struct ft8756_ts,
++					    poll_work.work);
++
++	ft8756_report(ts);
++
++	if (ft8756_poll_ms)
++		schedule_delayed_work(&ts->poll_work,
++				      msecs_to_jiffies(ft8756_poll_ms));
++}
++
+ static irqreturn_t ft8756_irq_handler(int irq, void *dev_id)
+ {
+ 	struct ft8756_ts *ts = dev_id;
+@@ -573,6 +612,18 @@
+ 		return ret;
+ 	}
+ 
++	if (ft8756_poll_ms) {
++		ret = devm_delayed_work_autocancel(dev, &ts->poll_work,
++						   ft8756_poll_work);
++		if (ret)
++			return ret;
++
++		schedule_delayed_work(&ts->poll_work,
++				      msecs_to_jiffies(ft8756_poll_ms));
++		dev_info(dev, "polling point data every %u ms\n",
++			 ft8756_poll_ms);
++	}
++
+ 	/* If the device follows a DRM panel, configure panel follower */
+ 	if (drm_is_panel_follower(dev)) {
+ 		ts->panel_follower.funcs = &ft8756_panel_follower_funcs;
+--- a/drivers/input/touchscreen/ft8756.c
++++ b/drivers/input/touchscreen/ft8756.c
+@@ -86,6 +86,19 @@
+ module_param_named(ignore_id, ft8756_ignore_id, bool, 0644);
+ MODULE_PARM_DESC(ignore_id, "probe even when the chip id is unknown");
+ 
++/*
++ * ft8756.poll=<ms>: read the point data register on a timer instead of
++ * waiting for the interrupt. The controller in this Redmi K40 never
++ * moves its INT line -- /proc/interrupts stays at 0 across a swipe,
++ * with gpio39 read as input, pulled up and high -- so the interrupt
++ * path cannot say whether the chip reports touches at all. Polling
++ * asks the register directly. 0 (the default) keeps the driver
++ * interrupt-driven.
++ */
++static unsigned int ft8756_poll_ms;
++module_param_named(poll, ft8756_poll_ms, uint, 0644);
++MODULE_PARM_DESC(poll, "poll the point data register every N ms (0 = off)");
++
+ struct ft8756_abs_object {
+ 	u16 x;
+ 	u16 y;
+@@ -107,6 +120,9 @@
+ 	struct ft8756_abs_object abs_obj;
+ 
+ 	struct drm_panel_follower panel_follower;
++
++	struct delayed_work poll_work;
++	u8 dbg_last[16];
+ };
+ 
+ /*
+@@ -384,6 +400,17 @@
+ 		goto exit;
+ 	}
+ 
++	/*
++	 * Only on change: a poll interval of a few tens of milliseconds
++	 * would otherwise fill the log with the idle frame.
++	 */
++	if (ft8756_debug_frames &&
++	    memcmp(point, ts->dbg_last, sizeof(ts->dbg_last))) {
++		memcpy(ts->dbg_last, point, sizeof(ts->dbg_last));
++		print_hex_dump(KERN_ERR, "ft8756 pt ", DUMP_PREFIX_OFFSET,
++			       16, 1, point, sizeof(ts->dbg_last), false);
++	}
++
+ 	for(i = 0; i < 6; i++) {
+ 		if((point[i] != 0xEF && point[i] != 0xFF))
+ 			break;
+@@ -436,6 +463,18 @@
+ 	return;
+ }
+ 
++static void ft8756_poll_work(struct work_struct *work)
++{
++	struct ft8756_ts *ts = container_of(work, struct ft8756_ts,
++					    poll_work.work);
++
++	ft8756_report(ts);
++
++	if (ft8756_poll_ms)
++		schedule_delayed_work(&ts->poll_work,
++				      msecs_to_jiffies(ft8756_poll_ms));
++}
++
+ static irqreturn_t ft8756_irq_handler(int irq, void *dev_id)
+ {
+ 	struct ft8756_ts *ts = dev_id;
+@@ -573,6 +612,18 @@
+ 		return ret;
+ 	}
+ 
++	if (ft8756_poll_ms) {
++		ret = devm_delayed_work_autocancel(dev, &ts->poll_work,
++						   ft8756_poll_work);
++		if (ret)
++			return ret;
++
++		schedule_delayed_work(&ts->poll_work,
++				      msecs_to_jiffies(ft8756_poll_ms));
++		dev_info(dev, "polling point data every %u ms\n",
++			 ft8756_poll_ms);
++	}
++
+ 	/* If the device follows a DRM panel, configure panel follower */
+ 	if (drm_is_panel_follower(dev)) {
+ 		ts->panel_follower.funcs = &ft8756_panel_follower_funcs;

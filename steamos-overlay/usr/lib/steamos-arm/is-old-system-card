@@ -1,0 +1,17 @@
+#!/bin/sh
+# is-old-system-card <kernel name>: true when the partition is on a microSD
+# card that still holds one of our SD images (BOOT + root + home) but isn't
+# what this system runs from, i.e. the card left over after moving SteamOS to
+# internal storage. udev (98-steamos-arm-system-disk.rules) keeps Steam's
+# automount off it: mounting its root and home as game drives left Steam
+# unaware of the card or failing "already mounted", while Settings > Storage
+# > Format SD card turns it into a normal game card.
+name="$1"
+case "$name" in mmcblk*) ;; *) exit 1 ;; esac
+n=$(basename "$(readlink -f "/sys/class/block/$name")")
+[ -e "/sys/class/block/$n/partition" ] && n=$(basename "$(dirname "$(readlink -f "/sys/class/block/$n")")")
+labels=$(blkid -s LABEL -o value /dev/${n}p* 2>/dev/null | tr '\n' ' ')
+case " $labels " in *" BOOT "*) ;; *) exit 1 ;; esac
+case " $labels " in *" root "*) ;; *) exit 1 ;; esac
+case " $labels " in *" home "*) ;; *) exit 1 ;; esac
+exit 0

@@ -1,0 +1,25 @@
+#!/bin/bash
+# Lenovo tablets (stock Qualcomm ABL, A/B slots): tell the bootloader this
+# boot worked. Android's boot_control HAL normally marks the slot successful;
+# without it the ABL counts down its retries (7) and then gives up on the slot.
+# Qualcomm keeps the slot state in the GPT attributes of boot_a / boot_b:
+# bit 50 active, 51-53 retry count, 54 successful, 55 unbootable.
+set -u
+for s in a b; do
+  part=$(readlink -f "/dev/disk/by-partlabel/boot_$s" 2>/dev/null) || continue
+  [[ -b $part ]] || continue
+  disk=/dev/$(lsblk -no PKNAME "$part")
+  num=$(cat "/sys/class/block/${part##*/}/partition")
+  attrs=$(sfdisk --part-attrs "$disk" "$num" 2>/dev/null)
+  bits=" $(sed -n 's/.*GUID:\([0-9,]*\).*/\1/p' <<<"$attrs" | tr ',' ' ') "
+  [[ $bits == *" 50 "* ]] || continue               # not the active slot
+  [[ $bits == *" 54 "* && $bits != *" 55 "* ]] && exit 0
+  new=$(tr ' ' '\n' <<<"$bits" | grep -vxE '|55' | sort -nu | tr '\n' ',' | sed 's/,$//')
+  new="${new:+$new,}54"
+  other=$(sed 's/GUID:[0-9,]*//; s/^ *//; s/ *$//' <<<"$attrs")
+  sfdisk --part-attrs "$disk" "$num" "${other:+$other }GUID:$new" >/dev/null 2>&1 \
+    && echo "boot_$s marked successful" || echo "boot_$s: could not set the GPT attributes" >&2
+  exit 0
+done
+echo "no active boot slot found" >&2
+exit 0
