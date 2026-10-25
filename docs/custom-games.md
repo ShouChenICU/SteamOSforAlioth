@@ -286,3 +286,24 @@ systemctl --user start steam.service
 
 Steam 运行时持有 `shortcuts.vdf` 的内存副本，重启它会用旧副本覆盖掉你的修改，
 **而且不报错**。改完回读一遍确认。
+
+### 软键盘
+
+**按音量下打开快捷菜单，里面就有键盘。** 这是触摸设备上唯一需要知道的办法。
+
+**文本框自动弹出键盘做不到**，而且不是配置问题：Steam 的软键盘靠 gamescope 的
+私有协议 `gamescope_input_method` 工作，那是 Steam 用来把按键**注入**给应用的
+单向通路。gamescope 没有实现 `zwp_text_input_v3`（二进制里 `strings` 搜不到），
+所以客户端没有任何办法告诉合成器"我这里有个输入框"。Chromium 走 X11 还是
+Wayland 都一样。
+
+Deck 上的 Steam + X 在这台机器上也用不了：alioth 没有任何实体手柄按键，两个
+音量键已经分别是 Steam 键和快捷菜单（见
+`alioth-overlay/etc/inputplumber/capability_maps.d/alioth_keys.yaml`），没有
+第三个键可以当 X。
+
+需要从脚本里呼出键盘的话，这条命令实测可用：
+
+```bash
+steam "steam://open/keyboard"
+```
