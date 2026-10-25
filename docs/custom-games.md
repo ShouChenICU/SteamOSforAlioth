@@ -204,3 +204,64 @@ performance，游戏退出再切回来，妖妖梦因此从 48.40 回到 60.00�
 
 游戏装在 `userdata` 分区（`/`，约 106 GiB）。这是安装 SteamOS 时就已经不可逆地
 拿过来的那块，往里放游戏不涉及任何分区操作，删了就回来了。
+
+---
+
+## 装一个浏览器（以及任何非游戏的桌面应用）
+
+游戏模式里没有桌面，但 Flatpak 应用可以当成非 Steam 游戏启动。Chromium 和
+Firefox 在 Flathub 上都有 **aarch64 原生构建**，不走 FEX 翻译。
+
+```bash
+# 1. 加 Flathub（只是一条仓库地址）
+sudo flatpak remote-add --if-not-exists flathub \
+  https://dl.flathub.org/repo/flathub.flatpakrepo
+
+# 2. 确认有 aarch64 构建再装
+sudo flatpak remote-info flathub org.chromium.Chromium | grep -E "Arch|Download"
+#   Arch: aarch64 / Download: 184.2 MB（装完 473.9 MB，另加约 1.2 GB 的 runtime）
+
+sudo flatpak install -y flathub org.chromium.Chromium
+```
+
+装在 `/var/lib/flatpak`，**不碰 rootfs 的任何包**，不想要了 `flatpak uninstall`
+干净删除。Firefox（`org.mozilla.firefox`）同理，两者共用
+`org.freedesktop.Platform/aarch64/25.08` 这个 runtime，所以先装后删能省掉重新下。
+
+`extra/chromium` 也在 pacman 源里，而且依赖闭环只有 3 个包、零个已装包被升级
+（不是部分升级，这一点和整体 `-Syu` 完全不同）。但版本是 124，Flathub 是 156 —— 
+浏览器差两年半的安全补丁不划算，所以走 Flatpak。
+
+### 写成快捷方式
+
+按上面 `shortcuts.vdf` 的办法加一条，Exe 和 LaunchOptions 这样写：
+
+```
+Exe            = "/usr/bin/flatpak"
+StartDir       = "/usr/bin/"
+LaunchOptions  = run --branch=stable --arch=aarch64 --command=chromium \
+                 org.chromium.Chromium \
+                 --window-position=0,0 --window-size=1920,1080 --touch-events=enabled
+FlatpakAppID   = org.chromium.Chromium
+```
+
+**`--window-size=1920,1080` 不是随便写的，也不要改大。** 这台机器上 gamescope
+的输出是 2400×1080，但 Steam 启动后会把 XWayland 的屏幕改成 1920×1080，应用能用
+的只有 1920。给大了的后果是屏幕右边约 20% 既画在屏外、也点不到（触摸有反应但
+落点被钳住）。详见 `docs/alioth.md`「显示：输出是 2400×1080，但应用看到的是
+1920×1080」。
+
+同理 **不要用 `--force-device-scale-factor`** 来放大界面：它会把窗口的设备像素
+尺寸一起放大，等于又把窗口撑过 1920。要放大字就用 Chromium 自己的页面缩放
+（设置 → 外观 → 页面缩放），那个只影响内容、不影响窗口尺寸。
+
+### 改启动项之前先停 Steam
+
+```bash
+systemctl --user stop steam.service
+#   ... 改 shortcuts.vdf ...
+systemctl --user start steam.service
+```
+
+Steam 运行时持有 `shortcuts.vdf` 的内存副本，重启它会用旧副本覆盖掉你的修改，
+**而且不报错**。改完回读一遍确认。

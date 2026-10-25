@@ -2688,3 +2688,59 @@ bootloader 在 `0x1090..0x1093` 留了非零值（真机读到 `1b 1e 01 01`）�
 顺带一个本来会误判的读数：降档之后 `voltage_now` 从 4.4944 V 一路**下降**到
 4.4817 V，而电量还在涨。电流小了，IR 压降也小了 —— 这反过来支持上面那个
 「高于浮充的读数是压降」的推断，但仍然是推断。
+
+## 显示：输出是 2400×1080，但应用看到的是 1920×1080（2026-10-25）
+
+gamescope 按面板的长边起会话：
+
+```
+gamescope --output-width 2400 --output-height 1080
+          --nested-width 2400 --nested-height 1080 --scaler fit
+```
+
+但日志里有两行，中间差 8 秒：
+
+```
+21:46:28  wlserver: Updating mode for xwayland server #0: 2400x1080@120
+21:46:36  wlserver: Updating mode for xwayland server #0: 1920x1080@120
+```
+
+21:46:29 `Started Steam Launcher`，21:46:36 Steam UI 起来。**是 Steam 把 XWayland
+的屏幕改成 1920×1080 的**，gamescope 自己设的是 2400。没有找到可以改这个上限的
+Steam 配置键（`localconfig.vdf`、`config.vdf` 里都没有相关条目），`gamescope
+--help` 里也没有锁定 xwayland 模式的选项。
+
+后果是：**所有应用实际渲染在 1920×1080，被 `--scaler fit` 以 1.0 倍居中放进
+2400 的输出，左右各留 240 px 黑边。** Steam 自己的界面就是这样，截图里能量出来。
+
+### 非 Steam 应用的窗口不能按 2400 给
+
+把 Chromium 的窗口设成 2400 宽（`--window-size`，或者 1600×720 配
+`--force-device-scale-factor=1.5`，等于 2400 设备像素）之后：
+
+- 画面铺满了整个 2400，看起来"对"；
+- 但**屏幕右边约 20% 点不动**，而且触摸有反应、落点不对，像被钳在一堵看不见
+  的墙里。
+
+原因是窗口比 X 屏宽 480 px，右边那段在 X 屏外面。触摸落点被钳到 X 屏的边界，
+1920/2400 = 80%，和实测的"右边 20%"完全对得上。
+
+**先排除了两个更顺手的猜测，靠的是数据不是推理：**
+
+1. 不是触摸 IC。划屏时 `evtest` 抓到长边 `0 -> 2383`（量程 0–2399，7155 个
+   样本），整条边都在报。
+2. 不是 `--force-device-scale-factor=1.5`。那个假设预测的死区是 1/1.5 = 33%，
+   和实测的 20% 不是一个数；两个假设互斥，一次划屏就分辨开了。
+
+把窗口改成 `--window-size=1920,1080`（= X 屏实际尺寸）之后，Chromium 的几何和
+Steam 界面一模一样，右侧恢复可点（真机确认）。
+
+### Steam 运行时独占 shortcuts.vdf
+
+改 `shortcuts.vdf` 必须先 `systemctl --user stop steam.service`。Steam 在运行时
+持有这个文件的内存副本，**重启 steam.service 会用旧副本把外部修改覆盖掉**，而且
+不报任何错。
+
+这害得一轮测试白做：改完直接重启 Steam，启动项其实还是旧的，用户反馈"还是点不
+到"被当成了假设被证伪 —— 那个结论是错的。现在的做法是停服务→改→起服务→回读
+确认。
