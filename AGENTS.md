@@ -29,7 +29,7 @@ behave here:
    from a symptom to a cause here without measuring in between, you will be
    wrong, and the cost is measured in flashes and in hardware.
 
-2. **The rules are checked, not remembered.** There are 14 assertion scripts.
+2. **The rules are checked, not remembered.** There are 15 assertion scripts.
    `flash-alioth.sh` refuses to run if the relevant ones fail. That is
    deliberate: a rule that lives only in a comment is a rule that gets violated
    by the next person who is in a hurry, and some of these rules are the only
@@ -210,6 +210,7 @@ or root; the two noted below are the exceptions to `for t in scripts/assert-alio
 | `assert-alioth-kit.sh` | the built kit: filesystem format, size, fstab, firmware signatures, sudoers. Group B needs `--install` output and `sudo`. |
 | `assert-alioth-overlay.py` / `-applied.sh` | the overlay's content, and that applying it to a rootfs lands every file with the right mode in both the lower directory and `/etc`'s overlayfs upper. |
 | `assert-alioth-speaker-test.sh` | that the audio-test guardrails still exist — level and duration bounds, and that the fault decoder fails when it cannot read. |
+| `assert-alioth-gametune.sh` | the game-mode clock tuner, against a fake sysfs: that it fires for a game scope and not for the Steam client, restores on SIGTERM, and never sets CPU affinity (measured: pinning to the big cores costs frames). |
 | `assert-alioth-firmware.sh` | that the two blobs are the device's own and not linux-firmware's. |
 | `assert-alioth-writeboot.sh` | the device-side boot writer. Needs root. |
 | `assert-alioth-markslot.py`, `-modules.py`, `-firstboot.sh`, `-devr.sh`, `-rootfs.sh` | GPT slot marking, the module set, first-boot growth, de-VR-ing, the assembled rootfs. |

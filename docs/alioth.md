@@ -2474,3 +2474,66 @@ DISPLAY 是 `:0` 还是 `:1` 要看 `/tmp/.X11-unix/` 下有哪些（本机两�
 
 还有一个坑：`gamescopectl screenshot` 写 `/home/steamos/...` 会返回 0 但不产出
 文件，写 `/tmp` 才正常。
+
+## 帧率：瓶颈是升频速度，而「绑大核」是负优化（2026-10-25）
+
+测试载体是 th07（《东方妖妖梦》，2003，32 位 x86 + DirectX 8，经 FEX 的 wow64
+路径和 DXVK 跑），场景固定在标题菜单，读数取游戏自己右下角那个计数器 —— 它
+锁 60 fps，所以 60.00 就是上限，达不到就是真的在掉帧。
+
+| 配置 | 游戏自报 fps | mangoapp | CPU | GPU |
+|---|---|---|---|---|
+| schedutil + GPU simple_ondemand（出厂默认） | 48.40 | 50 | 33% | 46% |
+| CPU performance | 55.67 | 56 | 10% | 42% |
+| CPU performance + GPU performance | **60.00** | 60 | 24% | 49% |
+| schedutil + 线程绑到 cpu4-7 | 36.79 | 37 | 29% | 37% |
+| CPU performance + 线程绑到 cpu4-7 | 50.66 | 53 | 11% | 50% |
+| CPU performance，亲和放开（对照） | 54.05 | 56 | 12% | 45% |
+
+### 瓶颈不是算力，是调速器爬坡
+
+CPU 切到 performance 之后占用率**下降**（33% → 24%），帧率反而上去了：同样的
+活在高频下干得更快，每帧占的时间更少。GPU 那 4 帧同理 —— simple_ondemand 在
+帧与帧之间掉回 305 MHz，下一帧又要重新爬上来，而 Adreno 的 devfreq 采样周期
+对一个 16.7 ms 的帧来说太慢了。
+
+### 把游戏线程绑到大核是负优化，两种调速器下都是
+
+这一条和直觉相反，所以 `scripts/assert-alioth-gametune.sh` 专门有一条断言禁止
+把它加回来。
+
+- **schedutil 下 48.40 → 36.79。** cpu7 的空闲档是 844 MHz，而利用率是按 CPU
+  容量归一化算的：同样的绝对负载放到容量更大的核上，算出来的利用率更低，于是
+  schedutil 更不愿意升频。钉在超大核上反而出不了力。
+- **performance 下 55.67 → 50.66。** 频率已经顶死了，这 5 帧是抢核心抢掉的：
+  四个大核上还有 gamescope 合成器、Steam 客户端和 wine 的辅助线程，把游戏挤进
+  同一组核心等于让它们互相抢，而四个小核在旁边闲着。
+
+骁龙 870 的拓扑是 4×A55（cpu0-3，1.80 GHz）+ 3×A77（cpu4-6，2.42 GHz）+
+1×超大核（cpu7，3.19 GHz）。调度器自己就会把主线程放到大核上（实测 PSR=5，
+performance 下 PSR=7），不需要帮忙。
+
+### GPU 的 587 MHz 是上限，而且不是调度能解决的
+
+`&gpu_opp_table` 里 650 MHz 及以上的九个档位是我们自己删掉的，原因见 DTS 里的
+注释：它们要 RPMh 的 NOM 之上电压档（0x140），而那会让 GMU 的 HFI 投票超时、
+`adreno_load_gpu` 以 -110 失败，GPU 整个起不来。所以 587 MHz 是现在的硬上限，
+比 SD870 原厂的 670 MHz 低约 12%。把 670 MHz 放回去是一行实验，但它仍然要那个
+level-0x140 的投票，需要自己的真机测试，不能靠猜。
+
+### 落地：alioth-game-tune
+
+`alioth-overlay/usr/lib/steamos-arm/alioth-game-tune` + 同名 systemd unit。每 2 秒
+看一次 cgroup 树里有没有 `app.slice/app-steam-app<appid>-<pid>.scope` —— Steam
+给每个游戏（含手动加的非 Steam 游戏）都建一个这样的 scope，而 Steam 客户端自己
+在 `session.slice/steam.service`，不会误判。有游戏就把所有 cpufreq policy 和 GPU
+devfreq 切到 performance，游戏退出切回 schedutil / simple_ondemand。
+
+**为什么不常开：** performance 对小核也生效，policy0 会一直钉在 1.80 GHz 待机。
+所以退出路径（包括 SIGTERM）必须恢复，unit 里因此写了 `KillSignal=SIGTERM` 和
+`TimeoutStopSec=`，断言里也有对应的一条 —— 服务被停掉之后还留着 performance，
+是没有任何症状会提示你的那一类错误。
+
+**热不用自己管：** cpufreq/devfreq 的 cooling device 是 thermal 框架通过限制
+policy 的**最大**频率实现的，和调速器正交。performance 只是让频率一直顶在当前
+被允许的上限上，温度上来该降还是会降。

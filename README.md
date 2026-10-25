@@ -75,7 +75,7 @@ and its symptom, and every one of them is written up in the docs.
 - **Android's system partitions stay.** `super` (8.5 GiB) is never written.
   SteamOS lives in `userdata`, which is where the boot command line was
   pointing all along.
-- **Everything is asserted, not remembered.** 14 assertion scripts in
+- **Everything is asserted, not remembered.** 15 assertion scripts in
   [`scripts/`](scripts) check the DTB, the boot image, the overlay, the flash
   script, the module set and the kernel config. `flash-alioth.sh` refuses to
   run if they fail, refuses to write the slot the phone currently boots from,
@@ -112,7 +112,7 @@ run anything. It is written for you specifically, and it covers:
 - the order to port this to a different phone, and the three rules this port
   paid for: verify the premise on the device first, `=m` means absent in phase
   1, and when two guesses miss, print the data instead of guessing a third time
-- what each of the 14 assertion scripts gates, and why working around a failing
+- what each of the 15 assertion scripts gates, and why working around a failing
   one is the only thing here that is forbidden
 
 The rest of the documentation is in Chinese. `AGENTS.md` says which file
@@ -130,6 +130,7 @@ answers which question, and in what order to read them.
 | GPU (Adreno 650) | ✅ | Mesa Turnip; needs the phone's own signed `a650_zap.mbn` |
 | x86 games (FEX + Proton 11 ARM64) | ✅ | 4K pages confirmed, which FEX requires absolutely |
 | Performance overlay (mangoapp) | ✅ | Including a real GPU-busy figure — see [patch 0028](external-and-mods/kernel-sm8250/patches/0028-drm-msm-export-gpu-utilization-through-debugfs.patch) |
+| Clocks while gaming | ✅ | `alioth-game-tune` puts CPU and GPU on `performance` only while a Steam game is running — measured 48.40 → 60.00 fps on the test title |
 | Speakers (2× Cirrus CS35L41) | ✅ | Tertiary TDM backend; needed three kernel patches and a UCM profile |
 | Wi-Fi + Bluetooth (QCA6390) | ✅ | Bluetooth address is generated but stable across reboots, so pairings persist |
 | Bluetooth controller | ✅ | Shows up as a Steam Deck pad via InputPlumber |

@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# 游戏在跑的时候把 CPU/GPU 的调速器切到 performance，游戏退了再切回来。
+#
+# 为什么需要它，以及为什么它只做这一件事 —— 2026-10-25 在真机上用 th07
+# （一个锁 60 fps 的 2003 年老游戏，经 FEX + DXVK 跑）量出来的，场景固定在
+# 标题菜单，读数取游戏自己右下角那个计数器：
+#
+#   schedutil + GPU simple_ondemand（出厂默认）   48.40 fps
+#   CPU performance                               55.67 fps
+#   CPU performance + GPU performance             60.00 fps  <- 游戏自己的上限
+#   schedutil      + 线程绑到大核 4-7             36.79 fps
+#   CPU performance + 线程绑到大核 4-7            50.66 fps
+#   CPU performance，亲和放开（对照）             ~54-56 fps
+#
+# 两条结论，第二条和直觉相反：
+#
+#   1. 瓶颈是升频速度，不是算力。CPU 切 performance 之后占用率反而从 33%
+#      掉到 24% —— 同样的活干得更快，每帧占的时间更少。GPU 那 4 帧同理：
+#      simple_ondemand 在帧与帧之间掉回 305 MHz，下一帧又要爬上来。
+#
+#   2. **把游戏线程绑到大核是负优化**，而且两种调速器下都是。schedutil 下
+#      掉到 36.79 是因为 cpu7 空闲档只有 844 MHz，而利用率是按容量归一化
+#      算的：钉在大核上反而更难把频率顶上去。performance 下也慢 5 帧，
+#      因为四个大核上还有合成器和 Steam，把游戏挤进同一组核心，等于让它们
+#      互相抢，而四个小核在旁边闲着。所以这个脚本不碰亲和，一个字都不碰。
+#
+# 热：cpufreq/devfreq 的 cooling device 是 thermal 框架通过「限制 policy 的
+# 最大频率」实现的，和调速器是两回事 —— performance 只是让它一直顶在当前
+# 允许的上限，温度上来该降还是会降。所以这里不需要自己做温控。
+#
+# 电：正因为 performance 对小核也生效（policy0 会一直钉在 1.8 GHz），它绝不
+# 能常开。这个脚本只在「有游戏 scope 存在」的那段时间里开。
+set -uo pipefail
+
+# 下面这几个都可以用环境变量覆盖，scripts/assert-alioth-gametune.sh 就是靠
+# 它们把整套逻辑指到一棵假的 sysfs 上验的 —— 不必在真机上来回切调速器。
+CG_ROOT="${ALIOTH_TUNE_CGROUP_ROOT:-/sys/fs/cgroup}"
+CPUFREQ_DIR="${ALIOTH_TUNE_CPUFREQ:-/sys/devices/system/cpu/cpufreq}"
+DEVFREQ_DIR="${ALIOTH_TUNE_DEVFREQ:-/sys/class/devfreq/3d00000.gpu}"
+IDLE_CPU_GOV="${ALIOTH_TUNE_IDLE_CPU_GOV:-schedutil}"
+IDLE_GPU_GOV="${ALIOTH_TUNE_IDLE_GPU_GOV:-simple_ondemand}"
+GAME_CPU_GOV="${ALIOTH_TUNE_GAME_CPU_GOV:-performance}"
+GAME_GPU_GOV="${ALIOTH_TUNE_GAME_GPU_GOV:-performance}"
+INTERVAL="${ALIOTH_TUNE_INTERVAL:-2}"
+
+log() { echo "alioth-game-tune: $*" >&2; }
+
+# Steam 给每个游戏建一个自己的 systemd scope：
+#   app.slice/app-steam-app<appid>-<pid>.scope
+# Steam 客户端自己是 session.slice/steam.service，不会撞上这个模式。非 Steam
+# 游戏（手动加的快捷方式）同样走这里，所以它们也一起受益。
+game_running() {
+  local hit
+  hit="$(find "$CG_ROOT" -maxdepth 6 -type d -name 'app-steam-app[0-9]*.scope' \
+         -print -quit 2>/dev/null)"
+  [[ -n "$hit" ]]
+}
+
+# 写一个 governor 文件。写不进去就说出来 —— 「静默地什么都没发生」和「生效了」
+# 在帧率上是看得出区别的，但在日志里不该看不出来。
+write_gov() { # write_gov <文件> <值>
+  local f="$1" v="$2"
+  [[ -w "$f" ]] || { log "写不了 $f（跳过）"; return 1; }
+  if ! echo "$v" >"$f" 2>/dev/null; then
+    log "写 $v 到 $f 失败"
+    return 1
+  fi
+  return 0
+}
+
+apply() { # apply <cpu governor> <gpu governor>
+  local cgov="$1" ggov="$2" p n=0
+  for p in "$CPUFREQ_DIR"/policy*/scaling_governor; do
+    [[ -e "$p" ]] || continue
+    write_gov "$p" "$cgov" && n=$((n + 1))
+  done
+  if [[ -e "$DEVFREQ_DIR/governor" ]]; then
+    write_gov "$DEVFREQ_DIR/governor" "$ggov" || true
+  fi
+  log "cpu=$cgov（$n 个 policy） gpu=$ggov"
+}
+
+state=unknown
+
+# 退出时一定要恢复。不恢复的后果不是「性能不对」，是小核被钉在 1.8 GHz
+# 待机耗电 —— 而且没有任何症状提示你它还开着。
+restore_and_exit() {
+  trap - TERM INT EXIT
+  [[ "$state" == game ]] && apply "$IDLE_CPU_GOV" "$IDLE_GPU_GOV"
+  exit 0
+}
+trap restore_and_exit TERM INT EXIT
+
+if [[ "${1:-}" == --once ]]; then
+  # 单轮：评估一次、按需切换、退出。给断言脚本用，也便于手工验证。
+  if game_running; then apply "$GAME_CPU_GOV" "$GAME_GPU_GOV"
+  else apply "$IDLE_CPU_GOV" "$IDLE_GPU_GOV"; fi
+  trap - TERM INT EXIT
+  exit 0
+fi
+
+log "启动：每 ${INTERVAL}s 看一次 $CG_ROOT 下有没有 Steam 游戏 scope"
+while :; do
+  if game_running; then
+    if [[ "$state" != game ]]; then
+      state=game
+      apply "$GAME_CPU_GOV" "$GAME_GPU_GOV"
+    fi
+  else
+    if [[ "$state" != idle ]]; then
+      state=idle
+      apply "$IDLE_CPU_GOV" "$IDLE_GPU_GOV"
+    fi
+  fi
+  sleep "$INTERVAL"
+done

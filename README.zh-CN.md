@@ -69,7 +69,7 @@ bootloader。每一个都是「原因和症状离得极远」的那类 bug，而
   `音量下 + 电源` 进 fastboot。
 - **Android 的系统分区保持不动。** `super`（8.5 GiB）从未被写过。SteamOS 住在
   `userdata` 里 —— 那本来就是 boot 命令行一直指着的那个分区。
-- **一切都用断言钉住，而不是靠记性。** [`scripts/`](scripts) 下有 14 个断言
+- **一切都用断言钉住，而不是靠记性。** [`scripts/`](scripts) 下有 15 个断言
   脚本，查 DTB、boot 镜像、overlay、刷机脚本、模块集合和内核配置。
   `flash-alioth.sh` 在断言不过时拒绝执行，拒绝写手机当前启动的那个槽，并且
   把所有可能碰到 `userdata` 的代码关在一个带标记的区段里 —— 迭代内核走的那条
@@ -100,7 +100,7 @@ Valve rootfs 和小米签名的固件都不是我能再分发的，所以唯一�
 - 移植到另一台手机的推进顺序，以及这个移植付出代价换来的三条规则：改之前先在
   真机上验证前提、阶段 1 里 `=m` 等于没有、两次猜错之后不要猜第三次而要把数据
   打出来
-- 14 个断言脚本各自钉住什么，以及为什么绕过一个失败的断言是这里唯一被禁止的事
+- 15 个断言脚本各自钉住什么，以及为什么绕过一个失败的断言是这里唯一被禁止的事
 
 其余文档是中文的。`AGENTS.md` 里写了哪个文件回答哪个问题、按什么顺序读。
 
@@ -116,6 +116,7 @@ Valve rootfs 和小米签名的固件都不是我能再分发的，所以唯一�
 | GPU（Adreno 650） | ✅ | Mesa Turnip；需要这台手机自己的签名版 `a650_zap.mbn` |
 | x86 游戏（FEX + Proton 11 ARM64） | ✅ | 4K 页已实测成立 —— 这是 FEX 的硬性前提 |
 | 性能浮层（mangoapp） | ✅ | 含真实的 GPU 占用率，见 [补丁 0028](external-and-mods/kernel-sm8250/patches/0028-drm-msm-export-gpu-utilization-through-debugfs.patch) |
+| 游戏时的频率策略 | ✅ | `alioth-game-tune` 只在 Steam 游戏运行时把 CPU 与 GPU 切到 `performance`，实测测试用例从 48.40 回到 60.00 fps |
 | 扬声器（两颗 Cirrus CS35L41） | ✅ | Tertiary TDM 后端；用掉三个内核补丁和一份 UCM 配置 |
 | Wi-Fi + 蓝牙（QCA6390） | ✅ | 蓝牙地址是生成的，但跨重启稳定，所以手柄配对不会丢 |
 | 蓝牙手柄 | ✅ | 经 InputPlumber 识别为 Steam Deck 手柄 |
