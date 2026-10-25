@@ -251,9 +251,30 @@ FlatpakAppID   = org.chromium.Chromium
 落点被钳住）。详见 `docs/alioth.md`「显示：输出是 2400×1080，但应用看到的是
 1920×1080」。
 
-同理 **不要用 `--force-device-scale-factor`** 来放大界面：它会把窗口的设备像素
-尺寸一起放大，等于又把窗口撑过 1920。要放大字就用 Chromium 自己的页面缩放
-（设置 → 外观 → 页面缩放），那个只影响内容、不影响窗口尺寸。
+`--force-device-scale-factor` 可以用来放大整个界面（标签栏、工具栏、菜单都放大，
+不只是网页内容），但**必须同步把 `--window-size` 除掉同样的倍数**：这个参数吃的
+是 CSS 像素，乘上缩放因子才是设备像素，而设备像素不能超过 1920。
+
+| 想要的倍数 | `--window-size` | 设备像素 |
+|---|---|---|
+| 1.0 | `1920,1080` | 1920×1080 |
+| 1.5 | `1280,720`  | 1920×1080 |
+| 1.75 | `1097,617` | 约 1920×1080 |
+
+写成 `1600,720` 配 1.5 倍就是 2400×1080 —— 正是上面那个右侧点不到的坑。
+
+### 界面语言
+
+Chromium 的界面语言跟 `LANGUAGE`/`LANG` 走，Flatpak 里要用 `flatpak run` 的
+`--env=` 传进去（必须写在 app id **之前**），再加一个 Chromium 自己的 `--lang`：
+
+```
+--command=chromium --env=LANGUAGE=zh-CN --env=LANG=zh_CN.UTF-8 \
+  org.chromium.Chromium --lang=zh-CN ...
+```
+
+`org.chromium.Chromium.Locale` 这个 runtime 扩展是跟着主程序一起装的，不用单独
+装。实测整个界面（含右键菜单和设置页）都会变成中文。
 
 ### 改启动项之前先停 Steam
 
