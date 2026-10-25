@@ -75,7 +75,7 @@ and its symptom, and every one of them is written up in the docs.
 - **Android's system partitions stay.** `super` (8.5 GiB) is never written.
   SteamOS lives in `userdata`, which is where the boot command line was
   pointing all along.
-- **Everything is asserted, not remembered.** 15 assertion scripts in
+- **Everything is asserted, not remembered.** 16 assertion scripts in
   [`scripts/`](scripts) check the DTB, the boot image, the overlay, the flash
   script, the module set and the kernel config. `flash-alioth.sh` refuses to
   run if they fail, refuses to write the slot the phone currently boots from,
@@ -112,7 +112,7 @@ run anything. It is written for you specifically, and it covers:
 - the order to port this to a different phone, and the three rules this port
   paid for: verify the premise on the device first, `=m` means absent in phase
   1, and when two guesses miss, print the data instead of guessing a third time
-- what each of the 15 assertion scripts gates, and why working around a failing
+- what each of the 16 assertion scripts gates, and why working around a failing
   one is the only thing here that is forbidden
 
 The rest of the documentation is in Chinese. `AGENTS.md` says which file
@@ -135,7 +135,7 @@ answers which question, and in what order to read them.
 | Wi-Fi + Bluetooth (QCA6390) | ✅ | Bluetooth address is generated but stable across reboots, so pairings persist |
 | Bluetooth controller | ✅ | Shows up as a Steam Deck pad via InputPlumber |
 | Volume keys / power button | ✅ | Steam quick-access menu; suspend and resume |
-| Charging (PM8150B) | ✅ | Float voltage clamped to 4.45 V. No fast charge |
+| Charging (PM8150B) | ✅ | 3 A / 4.45 V on the PMIC's own path, with `alioth-charge-guard` derating the input limit when the battery heats up. Not the stock 33 W — that needs the BQ25970 charge pump, which has no driver |
 | Battery level in Game Mode | ✅ | |
 | Plugged in while playing | ✅ | Battery 38 °C, hottest SoC sensor 61 °C |
 | USB-C host mode | ✅ | Wired controllers and keyboards enumerate |

@@ -1,0 +1,18 @@
+[Unit]
+Description=alioth: pull the charge input limit down when the battery gets hot
+# 电池节点要先在那儿。读不到温度时脚本自己会按最热档处理，所以这里不设
+# 硬依赖 —— 「服务没起来」比「起来了但按不限流跑」更糟。
+After=local-fs.target
+
+[Service]
+Type=exec
+ExecStart=/usr/lib/steamos-arm/alioth-charge-guard
+# 必须走 SIGTERM 的恢复路径，否则停服务之后输入上限会一直停在降档值上，
+# 表现是「充电莫名其妙变慢」，而且没有任何地方提示原因。
+KillSignal=SIGTERM
+TimeoutStopSec=10
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -87,11 +87,31 @@
 		 * driver falls back to charge-full-design/2 = 2.26A; a
 		 * current limit is a safety value and should be a decision
 		 * in the device tree, not a side effect of the capacity.
-		 * 2A is 0.44C, and the PMIC's own path is all we drive --
-		 * the BQ25970 charge pump that carries the stock 33W has no
-		 * driver here.
+		 * The PMIC's own path is all we drive -- the BQ25970 charge
+		 * pump that carries the stock 33W has no driver here.
+		 *
+		 * 2026-10-25: 2A -> 3A. Measured at 2A on a 9V/3.5A PD
+		 * charger: 4% in 5 minutes, i.e. ~48%/h ~= 2.17A -- the
+		 * setting was the binding limit, nothing else was holding
+		 * charging back, so raising it translates directly into
+		 * charge rate. 3A is 0.66C on this 4520mAh cell, against
+		 * roughly 1.5C that the stock 33W path puts through it, and
+		 * it is also the ceiling scripts/assert-alioth-dtb.py has
+		 * carried since the beginning (MAX_BATT_UA).
+		 *
+		 * The float voltage is untouched at 4.45V. Overcharge risk
+		 * lives in the voltage, not in the current.
+		 *
+		 * What 2A was partly standing in for is JEITA: this driver
+		 * never programs or enforces temperature-based current
+		 * derating, and the bootloader's JEITA registers
+		 * (0x1090..0x1093) are not decoded here. So this change
+		 * ships together with alioth-charge-guard, a userspace
+		 * watchdog that pulls the input current limit down when the
+		 * battery gets hot. Raising this number without that guard
+		 * is not the same change.
 		 */
-		constant-charge-current-max-microamp = <2000000>;
+		constant-charge-current-max-microamp = <3000000>;
 	};
 
 	gpio_keys: gpio-keys {

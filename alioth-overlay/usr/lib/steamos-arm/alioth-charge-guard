@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# 电池温度看门狗：热了就把**输入**电流上限压下去，凉了再放回来。
+#
+# 为什么需要它。2026-10-25 把 DTS 里的 constant-charge-current-max-microamp
+# 从 2A 提到 3A（0.66C；原厂 33W 走电荷泵时电池侧大约 1.5C）。2A 那个值里有
+# 一部分余量其实是在替代一个缺位的东西：
+#
+#   qcom_pm8150b_charger 不实现 JEITA。
+#
+# 它既不读也不写 JEITA 寄存器，整个驱动里 "jeita" 一个字都搜不到；它注册的
+# 电池相关中断只有 bat-ov（过压）。bootloader 在 0x1090..0x1093 留了非零值
+# （真机读到 1b 1e 01 01），但没人解码过它，所以**不能**说「硬件会保护你」。
+# 没有被验证过的保护等于没有保护 —— 这条教训来自功放那次：故障寄存器读不到
+# 时旧代码退出 0，于是「没读到」被当成了「没故障」。
+#
+# 这个脚本能动的闸只有一个。充电电流（FCC，寄存器 0x1061）是驱动在 probe
+# 时按 DTS 写死的，sysfs 不暴露；暴露出来的是 USB 侧的 current_max（ICL，
+# 输入电流上限）。压低输入功率就压低了充电电流，这是间接但有效的。副作用是
+# 它同时也限制了供给系统的功率 —— 热的时候这正是想要的。
+#
+# 温度来自 /sys/class/power_supply/battery/temp，单位是 0.1°C。这个节点在
+# 真机上是可信的（和充电器芯片自己的 ADC 温度一起看过，走势一致）；电池的
+# current_now 则不可信（三次采样返回同一个微安值），所以这里一个字都不用它。
+set -uo pipefail
+
+BATT="${ALIOTH_GUARD_BATT:-/sys/class/power_supply/battery}"
+CHG="${ALIOTH_GUARD_CHG:-/sys/class/power_supply/pm8150b-charger}"
+INTERVAL="${ALIOTH_GUARD_INTERVAL:-10}"
+
+# 档位：温度（0.1°C）-> 输入电流上限（µA）。从高到低排，第一个命中的生效。
+# 3300000 是驱动自己给 DCP 的值，也就是「不限制」。
+# 迟滞：降档用上面的阈值，升档要低于 RESTORE_TEMP，避免在阈值上来回抖。
+HOT1="${ALIOTH_GUARD_HOT1:-400}"   ; ICL1="${ALIOTH_GUARD_ICL1:-1500000}"
+HOT2="${ALIOTH_GUARD_HOT2:-430}"   ; ICL2="${ALIOTH_GUARD_ICL2:-1000000}"
+HOT3="${ALIOTH_GUARD_HOT3:-450}"   ; ICL3="${ALIOTH_GUARD_ICL3:-500000}"
+RESTORE_TEMP="${ALIOTH_GUARD_RESTORE:-380}"
+ICL_FULL="${ALIOTH_GUARD_ICL_FULL:-3300000}"
+
+log() { echo "alioth-charge-guard: $*" >&2; }
+
+read_temp() { # 打印 0.1°C；读不到就什么都不打印
+  local t
+  t="$(cat "$BATT/temp" 2>/dev/null)" || return 1
+  [[ "$t" =~ ^-?[0-9]+$ ]] || return 1
+  printf '%s\n' "$t"
+}
+
+set_icl() { # set_icl <µA>
+  echo "$1" >"$CHG/current_max" 2>/dev/null \
+    || { log "写不了 $CHG/current_max（$1 µA）"; return 1; }
+}
+
+# 当前这一档。用 -1 表示「还没定过」，这样第一轮一定会写一次。
+cur_icl=-1
+apply() { # apply <µA> <理由>
+  [[ "$1" == "$cur_icl" ]] && return 0
+  set_icl "$1" || return 1
+  cur_icl="$1"
+  log "输入上限 -> $(( $1 / 1000 )) mA（$2）"
+}
+
+decide() { # decide ; 读温度并决定这一轮的档位
+  local t
+  if ! t="$(read_temp)"; then
+    # 读不到温度**不是**「不热」。按最保守的那一档处理，并且说出来。
+    apply "$ICL3" "读不到电池温度 —— 按最热档处理"
+    return
+  fi
+  if   (( t >= HOT3 )); then apply "$ICL3" "电池 $((t/10)).$((t%10))°C ≥ $((HOT3/10))°C"
+  elif (( t >= HOT2 )); then apply "$ICL2" "电池 $((t/10)).$((t%10))°C ≥ $((HOT2/10))°C"
+  elif (( t >= HOT1 )); then apply "$ICL1" "电池 $((t/10)).$((t%10))°C ≥ $((HOT1/10))°C"
+  elif (( t <  RESTORE_TEMP )); then apply "$ICL_FULL" "电池 $((t/10)).$((t%10))°C < $((RESTORE_TEMP/10))°C"
+  fi
+  # HOT1 与 RESTORE_TEMP 之间：保持现状，这就是迟滞。
+}
+
+# 退出时把闸放回去。不放回去的后果是「充电一直很慢」，而且没有任何界面会
+# 告诉你是这个已经停掉的服务留下的。
+restore_and_exit() {
+  trap - TERM INT EXIT
+  [[ "$cur_icl" != "$ICL_FULL" && "$cur_icl" != -1 ]] && set_icl "$ICL_FULL"
+  exit 0
+}
+trap restore_and_exit TERM INT EXIT
+
+if [[ "${1:-}" == --once ]]; then
+  decide
+  trap - TERM INT EXIT
+  exit 0
+fi
+
+log "启动：每 ${INTERVAL}s 看一次电池温度（降档 $((HOT1/10))/$((HOT2/10))/$((HOT3/10))°C，恢复 <$((RESTORE_TEMP/10))°C）"
+while :; do
+  decide
+  sleep "$INTERVAL"
+done
