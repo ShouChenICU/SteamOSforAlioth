@@ -88,6 +88,7 @@ addresses, `ro.boot.cpuid`, `ro.boot.oled_wp`, `ro.boot.serialno`, touch
 | Flashing, debugging, changing the kernel | [`docs/alioth.md`](docs/alioth.md) — conclusions only: every measured fact, every patch and why it exists, both acceptance reports. Start with the acceptance sections at the end and work backwards to the subsystem you care about. |
 | Understanding why something is the way it is | [`docs/alioth-journal.md`](docs/alioth-journal.md) — the process, including the wrong turns. Most of the useful information about this hardware is in the wrong turns. |
 | Hardware identity (panel model, touch IC, battery limits, pin assignments) | [`docs/alioth-hardware.md`](docs/alioth-hardware.md) |
+| Adding the user's own Windows games as non-Steam shortcuts | [`docs/custom-games.md`](docs/custom-games.md) |
 | The design the work was planned against | [`docs/superpowers/specs/`](docs/superpowers/specs) |
 
 `docs/alioth.md` is long (~2400 lines) and organised chronologically with

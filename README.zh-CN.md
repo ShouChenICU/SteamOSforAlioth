@@ -22,6 +22,7 @@
   <a href="#能用的和不能用的">能用什么</a> ·
   <a href="#截图">截图</a> ·
   <a href="#自己构建">自己构建</a> ·
+  <a href="docs/custom-games.md">放自己的游戏</a> ·
   <a href="#安装">安装</a> ·
   <a href="#是怎么做出来的">怎么做出来的</a> ·
   <a href="#致谢">致谢</a>
@@ -163,11 +164,17 @@ Valve rootfs 和小米签名的固件都不是我能再分发的，所以唯一�
 <td colspan="2"><img src="docs/images/perf-overlay.jpg" alt="游戏中的 mangoapp 性能浮层" width="100%"></td>
 </tr>
 <tr>
+<td colspan="2"><img src="docs/images/custom-game.jpg" alt="作为非 Steam 游戏运行的东方妖妖梦" width="100%"></td>
+</tr>
+<tr>
+<td colspan="2"><sub>自己手上的 Windows 游戏也能放进来。这是 2003 年的《东方妖妖梦》—— 32 位 x86、DirectX 8，经 FEX 的 wow64 路径和 DXVK 的 <code>d3d8.dll</code> 跑在 Turnip 上。<a href="docs/custom-games.md">怎么放自己的游戏</a>。</sub></td>
+</tr>
+<tr>
 <td colspan="2"><sub>同一局，开着 mangoapp 性能浮层：43 FPS、CPU 53%、GPU 62%、内存 5.3 GiB、显存 1.3 GiB。GPU 占用率这一项是补丁 0028 导出的 <code>/sys/kernel/debug/dri/0/perf_now</code> —— mainline 的 msm 没有这个文件，MangoHud 又把路径写死成 <code>dri/0</code>，所以还要把 simpledrm 从 initcall 里拉黑，让 msm 拿到 minor 0。</sub></td>
 </tr>
 </table>
 
-四张都是从设备上抓的真实画面，不是效果图。前三张用 `gamescopectl screenshot`；带浮层的那张要走 gamescope 的调试截图原子
+五张都是从设备上抓的真实画面，不是效果图。前三张用 `gamescopectl screenshot`；带浮层的那张要走 gamescope 的调试截图原子
 （`xprop -root -f GAMESCOPECTRL_DEBUG_REQUEST_SCREENSHOT 8c -set GAMESCOPECTRL_DEBUG_REQUEST_SCREENSHOT 0`），
 因为 `gamescopectl screenshot` 只抓基础层，浮层不在那一层上。
 
@@ -269,6 +276,7 @@ fastboot erase userdata                   # Android 首次开机会自己格 /da
 |---|---|
 | [`docs/alioth.md`](docs/alioth.md) | 结论：每一条实测事实、每个补丁和它存在的理由、两个阶段的验收报告 |
 | [`docs/alioth-journal.md`](docs/alioth-journal.md) | 过程 —— 包括走错的路，而有用的信息大半在那里 |
+| [`docs/custom-games.md`](docs/custom-games.md) | 把自己手上的 Windows 游戏作为非 Steam 游戏放进来 |
 | [`docs/alioth-hardware.md`](docs/alioth-hardware.md) | 硬件图谱 |
 | [`docs/superpowers/specs/`](docs/superpowers/specs) | 规划这项工作所依据的设计规格 |
 | [`AGENTS.md`](AGENTS.md) | 给被要求刷机或移植的 agent：硬性规则、操作顺序、每个断言钉住什么 |

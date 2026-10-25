@@ -22,6 +22,7 @@
   <a href="#what-works">What works</a> ·
   <a href="#screenshots">Screenshots</a> ·
   <a href="#build-it">Build it</a> ·
+  <a href="docs/custom-games.md">Your own games</a> ·
   <a href="#install-it">Install it</a> ·
   <a href="#how-it-was-done">How it was done</a> ·
   <a href="#credits">Credits</a>
@@ -182,11 +183,17 @@ answers which question, and in what order to read them.
 <td colspan="2"><img src="docs/images/perf-overlay.jpg" alt="The mangoapp performance overlay in game" width="100%"></td>
 </tr>
 <tr>
+<td colspan="2"><img src="docs/images/custom-game.jpg" alt="Touhou 07 running as a non-Steam game" width="100%"></td>
+</tr>
+<tr>
+<td colspan="2"><sub>Your own Windows games work too. This is <i>Touhou 07: Perfect Cherry Blossom</i> from 2003 — a 32-bit x86 binary on DirectX 8, running through FEX's wow64 path with DXVK's <code>d3d8.dll</code> on Turnip. <a href="docs/custom-games.md">How to add your own</a> (in Chinese).</sub></td>
+</tr>
+<tr>
 <td colspan="2"><sub>The same session with the mangoapp overlay up: 43 FPS, CPU 53%, GPU 62%, 5.3 GiB RAM, 1.3 GiB VRAM. The GPU figure comes from <code>/sys/kernel/debug/dri/0/perf_now</code>, exported by patch 0028 — mainline msm has no such file, and MangoHud hardcodes <code>dri/0</code>, so simpledrm also has to be blacklisted at initcall time for msm to get minor 0.</sub></td>
 </tr>
 </table>
 
-All four are real captures off the device, not mockups. The first three came from `gamescopectl screenshot`; the one with the overlay needs gamescope's debug screenshot atom
+All five are real captures off the device, not mockups. The first three came from `gamescopectl screenshot`; the one with the overlay needs gamescope's debug screenshot atom
 (`xprop -root -f GAMESCOPECTRL_DEBUG_REQUEST_SCREENSHOT 8c -set GAMESCOPECTRL_DEBUG_REQUEST_SCREENSHOT 0`),
 because `gamescopectl screenshot` only captures the base plane and the overlay is not on it.
 
@@ -297,6 +304,7 @@ written in Chinese.
 | [`docs/alioth.md`](docs/alioth.md) | Conclusions: every measured fact, every patch and why it exists, both phase acceptance reports |
 | [`docs/alioth-journal.md`](docs/alioth-journal.md) | The process — including the wrong turns, which is where most of the useful information is |
 | [`docs/alioth-hardware.md`](docs/alioth-hardware.md) | The hardware map |
+| [`docs/custom-games.md`](docs/custom-games.md) | Running your own Windows games on it as non-Steam shortcuts |
 | [`docs/superpowers/specs/`](docs/superpowers/specs) | The design spec the work was planned against |
 | [`AGENTS.md`](AGENTS.md) | For an agent asked to flash this or port it: the hard rules, the sequence, and what each assertion gates |
 
