@@ -25,7 +25,11 @@ EXPECT_MODEL = "Xiaomi Poco F3"          # spec §249：InputPlumber 与 Decky �
 EXPECT_ZAP = "qcom/sm8250/a650_zap.mbn"  # 固件 kit 实际提供的路径
 
 # GPU 时钟上限。见下面第 4b 条：高于这个值的档位 GMU 投不出去。
-GPU_MAX_HZ = 587_000_000
+# 2026-10-25：从 587 提到 670（SD870 的原厂上限），**真机验过**：GMU 正常起来，
+# 没有 HFI 超时，devfreq 在 performance 下稳在 670 MHz。670 要 NOM_L1（0x140），
+# 而已知失败的 925 要 TURBO_L1，高两个 corner —— 所以 700 及以上仍然禁止，
+# 它们没有被验过。
+GPU_MAX_HZ = 670_000_000
 # 音频后端端口。id 见 include/dt-bindings/sound/qcom,q6dsp-lpass-ports.h。
 SPEAKER_PORT_ID = 56                     # TERTIARY_TDM_RX_0
 # 真正把音频送到两颗 CS35L41 的 ASP_SDIN 的那根线。见下面第 4c / 4e 条。

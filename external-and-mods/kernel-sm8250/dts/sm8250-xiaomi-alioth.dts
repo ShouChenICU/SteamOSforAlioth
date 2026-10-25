@@ -784,9 +784,17 @@
  * deletes for the same reason -- "none of the 650-925 MHz steps the other
  * 865 boards get". Dropping them leaves 587 MHz on NOM as the top step.
  *
- * Costs ~12% of peak GPU clock against the SD870's 670 MHz stock ceiling.
- * Putting 670 MHz back is a one-line experiment, but it still wants a
- * level-0x140 vote, so it needs its own on-device test rather than a guess.
+ * 2026-10-25: 670 MHz -- the SD870's stock ceiling -- is kept, and only it.
+ * The 925 MHz failure above does not prove 670 MHz fails: both want a level
+ * above NOM, but 670 asks for NOM_L1 (0x140) while 925 asks for TURBO_L1,
+ * two corners higher. Since the GMU boots at the highest enabled OPP, leaving
+ * 670 as the top step was exactly the test.
+ *
+ * Tested on the device that day: it works. available_frequencies ends in
+ * 670000000, the GMU comes up with no HFI timeout and no "gpu hw init failed",
+ * and devfreq sits at 670 MHz under the performance governor. The steps from
+ * 700 MHz up stay deleted -- they ask for corners above NOM_L1 and have not
+ * been tested; 925 MHz is known to fail.
  */
 &gpu_opp_table {
 	/delete-node/ opp-925000000;
@@ -796,7 +804,6 @@
 	/delete-node/ opp-750000000;
 	/delete-node/ opp-725000000;
 	/delete-node/ opp-700000000;
-	/delete-node/ opp-670000000;
 	/delete-node/ opp-650000000;
 };
 

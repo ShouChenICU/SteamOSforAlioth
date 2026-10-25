@@ -2513,13 +2513,63 @@ CPU 切到 performance 之后占用率**下降**（33% → 24%），帧率反而
 1×超大核（cpu7，3.19 GHz）。调度器自己就会把主线程放到大核上（实测 PSR=5，
 performance 下 PSR=7），不需要帮忙。
 
-### GPU 的 587 MHz 是上限，而且不是调度能解决的
+### GPU 的上限从 587 提到了 670 MHz（2026-10-25 实测）
 
-`&gpu_opp_table` 里 650 MHz 及以上的九个档位是我们自己删掉的，原因见 DTS 里的
-注释：它们要 RPMh 的 NOM 之上电压档（0x140），而那会让 GMU 的 HFI 投票超时、
-`adreno_load_gpu` 以 -110 失败，GPU 整个起不来。所以 587 MHz 是现在的硬上限，
-比 SD870 原厂的 670 MHz 低约 12%。把 670 MHz 放回去是一行实验，但它仍然要那个
-level-0x140 的投票，需要自己的真机测试，不能靠猜。
+`&gpu_opp_table` 里 650 MHz 及以上的九个档位原本是全删的，原因见 DTS 注释：
+2026-10-23 留着 925 MHz 时 GMU 的第一次 GX 投票 `HFI_H2F_MSG_GX_BW_PERF_VOTE`
+无响应，`adreno_load_gpu` 以 -110 失败，GPU 整个起不来（全程黑屏）。
+
+**但那次失败不构成「670 也不行」的证据。** 两者要的 RPMh level 不是一个：
+670 要 `NOM_L1`（0x140），925 要 `TURBO_L1`，高两个 corner。而 GMU 开机投的是
+**最高**那一档（`a6xx_gmu_init` 把 `current_perf_index` 设成 `nr_gpu_freqs - 1`），
+所以「只留 670 作为顶档」本身就是那个实验。
+
+实测结论：**670 MHz 可用。** 只把 `opp-670000000` 放回来（650 及以上仍然删），
+自刷重启之后：
+
+```
+/sys/class/devfreq/3d00000.gpu/available_frequencies
+  305000000 400000000 441600000 490000000 525000000 587000000 670000000
+max_freq = 670000000，governor=performance 时 cur_freq = 670000000
+```
+
+dmesg 里没有 `hw init failed`、没有 `hfi_wait_for_msg_interrupt`、没有
+`OOB set GPU_SET` —— 开机时那一串 `Timed out. Forcing sync_state()` 是
+`fw_devlink.sync_state=timeout` 的常规输出，和 GPU 无关，别认错。gamescope 和
+Steam 都正常起来，屏幕正常。
+
+于是 SD870 的原厂 GPU 上限拿回来了，`scripts/assert-alioth-dtb.py` 的
+`GPU_MAX_HZ` 同步改成 670 MHz —— 700 及以上仍然禁止，它们要的是更高的 corner，
+没有验过。
+
+#### 670 买到的是余量，不是帧数
+
+同一局 Ori（performance 调速器，只改 devfreq 的 `max_freq`）：
+
+| GPU 上限 | mangoapp FPS | GPU 占用 |
+|---|---|---|
+| 670 MHz | 46 | 51% |
+| 587 MHz | 46 | 60–70% |
+
+帧数没变，GPU 占用降了约 15% —— 同样的活在更高的时钟上干完，占用自然低。
+也就是说这局里的瓶颈**不在 GPU**（两边都没跑满）。46 fps 这个数本身是另一个
+待查的问题：CPU 和 GPU 都没满，却也不是 60，可能在 FEX 的翻译、Proton 的呈现
+路径或 gamescope 的帧节奏上。还没查。
+
+所以 670 的价值要这么说：对真正吃满 GPU 的内容它是 +14% 的时钟，对现在这几个
+游戏它只是把占用压下去、留出热和功耗的余量。
+
+#### 着色器预处理没有被提频覆盖
+
+Ori 启动前 Steam 要处理 Vulkan 着色器（这台机器上跑了好几分钟）。那一步不在
+`app-steam-app*.scope` 里，所以 `alioth-game-tune` 不会给它提频，全程 schedutil。
+这是个明确的改进点，但要先确认它在哪个 cgroup 里，别凭猜扩大匹配范围 ——
+匹配宽了的后果是 performance 常开。
+
+退路是这么准备的（值得照抄）：刷之前从**活动槽**原样 dump 一份在跑的镜像
+（`sudo dd if=/dev/disk/by-partlabel/boot_a`），而不是拿仓库里的 `boot.img` 当
+退路 —— 当时设备上跑的内核比仓库里那个 boot.img 新了八小时，那份「退路」其实
+不是正在跑的东西。
 
 ### 落地：alioth-game-tune
 
